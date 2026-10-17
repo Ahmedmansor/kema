@@ -3,7 +3,7 @@ import {fileURLToPath} from 'node:url';
 const root=fileURLToPath(new URL('../',import.meta.url));
 const url='http://127.0.0.1:5173';
 async function ready(){
-  try{const res=await fetch(url,{signal:AbortSignal.timeout(700)});return res.ok&&(await res.text()).includes('كِما');}catch{return false;}
+  try{const res=await fetch(url,{signal:AbortSignal.timeout(700)});return res.ok&&(await res.text()).includes('Kema');}catch{return false;}
 }
 function open(){
   if(process.platform==='win32') {
