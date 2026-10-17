@@ -14,6 +14,8 @@ export const TESTS = {
   free_t4: { name: 'هرمون الغدة T4 الحر', short: 'Free T4', group: 'thyroid', unit: 'ng/dL' }
 };
 export const GROUPS = { all: 'كل التحاليل', sugar: 'السكر', lipids: 'الدهون', thyroid: 'الغدة الدرقية', other: 'أخرى' };
+const ENGLISH_NAMES={glucose_fasting:'Fasting Blood Glucose (FBS)',glucose_2hr:'2-hour Postprandial Blood Glucose',hba1c:'Glycated Hemoglobin (HbA1c)',cholesterol_total:'Total Cholesterol',triglycerides:'Triglycerides',hdl:'HDL Cholesterol',ldl:'LDL Cholesterol',vldl:'VLDL Cholesterol',non_hdl:'Non-HDL Cholesterol',hdl_risk:'Total Cholesterol / HDL Ratio',tsh:'Thyroid-Stimulating Hormone (TSH)',free_t3:'Free Triiodothyronine (FT3)',free_t4:'Free Thyroxine (FT4)'};
+export function englishName(testId){return ENGLISH_NAMES[testId]||meta(testId).short;}
 export const SCHEMA_VERSION = 1;
 export function meta(testId) { return Object.hasOwn(TESTS,testId) ? TESTS[testId] : { name: testId, short: testId, group: 'other', unit: '' }; }
 export function isDate(value) {

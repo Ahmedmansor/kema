@@ -1,0 +1,11 @@
+{
+  "name":"kema-share",
+  "account_id":"3ccb794d60a7b0121c977ed935fd4fde",
+  "main":"cloudflare/share-worker.mjs",
+  "compatibility_date":"2026-10-17",
+  "workers_dev":true,
+  "preview_urls":false,
+  "assets":{"directory":"./share-dist","binding":"ASSETS","run_worker_first":true},
+  "d1_databases":[{"binding":"DB","database_name":"kema-db","database_id":"0485b8af-905b-4086-923b-df7601912455"}],
+  "observability":{"enabled":false}
+}

@@ -1,5 +1,6 @@
 import { validateBackup } from '../public/core.mjs';
 import { createProfileAPI } from './profiles.mjs';
+import { createDoctorShares } from './doctor-shares.mjs';
 
 const LIMIT=1024*1024;
 const securityHeaders={
@@ -43,6 +44,7 @@ export function checkOrigin(request){
   if(origin!==new URL(request.url).origin||request.headers.get('Sec-Fetch-Site')==='cross-site')throw new HttpError(403,'طلب الحفظ يجب أن يأتي من موقع Kema نفسه.');
 }
 const profiles=createProfileAPI({json,boundedBody,checkOrigin});
+const doctorShares=createDoctorShares({json,boundedBody,checkOrigin});
 async function stateAPI(request,env,profileId){
   if(request.method==='GET'){
     const row=await env.DB.prepare('SELECT revision,data,updated_at FROM kema_profile_state WHERE profile_id=?').bind(profileId).first();
@@ -93,11 +95,12 @@ export default {
         const identity=await verifyAccess(request.headers.get('Cf-Access-Jwt-Assertion'),env);
         if(path==='/api/session'&&request.method==='GET')return json(identity);
         if(path==='/api/profiles')return await profiles.profilesAPI(request,env,identity);
-        const match=path.match(/^\/api\/profiles\/([a-zA-Z0-9_-]{1,80})\/(session|state|roles|documents\/pdf_[a-f0-9]{64})$/);
+        const match=path.match(/^\/api\/profiles\/([a-zA-Z0-9_-]{1,80})\/(session|state|roles|shares|documents\/pdf_[a-f0-9]{64})$/);
         if(!match)return json({error:'حدّث الصفحة لاستخدام الملفات الصحية المستقلة.'},409);
         const [,profileId,resource]=match,session=await profiles.sessionFor(identity,env,profileId);
         if(resource==='session'&&request.method==='GET')return json(session);
         if(resource==='roles')return await profiles.rolesAPI(request,env,session);
+        if(resource==='shares')return await doctorShares(request,env,session);
         if(!['GET','HEAD'].includes(request.method)&&session.role==='viewer')throw new HttpError(403,'حسابك للقراءة فقط في هذا الملف.');
         if(resource==='state')return await stateAPI(request,env,profileId);
         if(resource.startsWith('documents/'))return await documentAPI(request,env,resource.slice('documents/'.length),profileId);

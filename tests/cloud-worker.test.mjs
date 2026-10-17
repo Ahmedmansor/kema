@@ -13,7 +13,7 @@ async function token(overrides={}){
   return parts.join('.')+'.'+Buffer.from(await crypto.subtle.sign('RSASSA-PKCS1-v1_5',pair.privateKey,new TextEncoder().encode(parts.join('.')))).toString('base64url');
 }
 async function fixture(t){
-  const db=new DatabaseSync(':memory:');for(const file of ['schema.sql','profiles-schema.sql'])db.exec(await readFile(new URL('../cloudflare/'+file,import.meta.url),'utf8'));
+  const db=new DatabaseSync(':memory:');for(const file of ['schema.sql','profiles-schema.sql','shares-schema.sql'])db.exec(await readFile(new URL('../cloudflare/'+file,import.meta.url),'utf8'));
   const prepare=sql=>({sql,args:[],bind(...args){this.args=args;return this;},async first(){return db.prepare(sql).get(...this.args);},async all(){return {results:db.prepare(sql).all(...this.args)};},async run(){return {meta:{changes:Number(db.prepare(sql).run(...this.args).changes)}};}});
   const files=new Map(),env={...config,DB:{prepare,async batch(queries){db.exec('BEGIN');try{const rows=queries.map(q=>({meta:{changes:Number(db.prepare(q.sql).run(...q.args).changes)}}));db.exec('COMMIT');return rows;}catch(e){db.exec('ROLLBACK');throw e;}}},PDFS:{async head(k){const b=files.get(k);return b?{size:b.length}:null;},async get(k){const b=files.get(k);return b?{body:b,size:b.length}:null;},async put(k,b){files.set(k,b);}}};
   const original=globalThis.fetch;globalThis.fetch=certs;t.after(()=>{globalThis.fetch=original;db.close();});

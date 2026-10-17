@@ -9,7 +9,9 @@
     "build": "node scripts/build.mjs",
     "test": "node --test tests/*.test.mjs",
     "deploy:cloudflare": "npm run build && wrangler deploy",
-    "check:cloudflare": "wrangler deploy --dry-run"
+    "check:cloudflare": "wrangler deploy --dry-run",
+    "build:share": "node scripts/build-share.mjs",
+    "deploy:share": "npm run build:share && wrangler deploy --config wrangler.share.jsonc"
   },
   "devDependencies": {
     "wrangler": "^4.151.1"
