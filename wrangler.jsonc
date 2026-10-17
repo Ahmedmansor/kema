@@ -10,6 +10,6 @@
   "assets": { "directory": "./dist", "binding": "ASSETS", "run_worker_first": true },
   "d1_databases": [{ "binding": "DB", "database_name": "kema-db", "database_id": "0485b8af-905b-4086-923b-df7601912455", "migrations_dir": "cloudflare" }],
   "r2_buckets": [{ "binding": "PDFS", "bucket_name": "kema-pdfs" }],
-  "vars": { "ACCESS_TEAM": "", "ACCESS_AUD": "" },
+  "vars": { "ACCESS_TEAM": "small-bush-dbc5", "ACCESS_AUD": "2e1afb19465201e0a638c2b31d6817c029f77f5018f0fa9913bee26da6d1dc40" },
   "observability": { "enabled": true, "head_sampling_rate": 0.1 }
 }

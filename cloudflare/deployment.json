@@ -5,7 +5,9 @@
   "database": "kema-db",
   "databaseId": "0485b8af-905b-4086-923b-df7601912455",
   "privateBucket": "kema-pdfs",
-  "workerVersion": "fe3c031b-d36e-47d2-833b-a6d2daf4caee",
-  "accessConfigured": false,
+  "workerVersion": "bc55e07a-4e1a-4823-a5cf-48ca6f25252c",
+  "accessConfigured": true,
+  "accessApplicationId": "871eff58-de67-4452-8eb9-0ae5996cb81d",
+  "accessTeam": "small-bush-dbc5",
   "medicalRecordsUploaded": false
 }
