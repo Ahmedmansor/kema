@@ -1,0 +1,6 @@
+Mozilla PDF.js / pdfjs-dist 6.4.299
+Source: https://www.npmjs.com/package/pdfjs-dist/v/6.4.299
+Project: https://github.com/mozilla/pdf.js
+License: Apache-2.0 (see LICENSE and asset-specific license files)
+Locally bundled legacy browser build, worker, CMaps, fonts, WASM, and ICC profiles.
+The application does not send PDF contents to Mozilla or to a third-party service.

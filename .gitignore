@@ -1,0 +1,11 @@
+data/
+dist/
+node_modules/
+tools/
+artifacts/
+*.log
+.env
+.env.*
+!.env.example
+*.pem
+*.key
