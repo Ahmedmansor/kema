@@ -117,7 +117,7 @@ export function toCSV(results) {
   return '\uFEFF' + [CSV_HEADERS, ...results.map(r => [r.date,r.lab,r.doctor,GROUPS[r.group],r.testId,r.name,r.value,r.unit,r.refMin,r.refMax,r.source,r.notes,r.group])].map(row=>row.map(escape).join(',')).join('\r\n');
 }
 export function validateBackup(data) {
-  if (!data || data.schemaVersion !== SCHEMA_VERSION || !Array.isArray(data.results) || !Array.isArray(data.medications)) throw new Error('الملف ليس نسخة احتياطية متوافقة مع كِما.');
+  if (!data || data.schemaVersion !== SCHEMA_VERSION || !Array.isArray(data.results) || !Array.isArray(data.medications)) throw new Error('الملف ليس نسخة احتياطية متوافقة مع Kema.');
   if (data.results.length > 20000 || data.medications.length > 5000) throw new Error('عدد السجلات أكبر من الحد المدعوم.');
   const documents=(data.documents||[]).map(validateDocument);
   const trash=(data.trash||[]).map(entry=>{
