@@ -175,7 +175,7 @@ export function createEnhancements(ctx){
   function augmentBackup(){
     if($('#modal-title')?.textContent!=='النسخ الاحتياطي والاستيراد')return;
     const info=backupInfo(),db=ctx.getDB();
-    const intro=$('.modal-body>p');if(intro)intro.textContent='النسخة الكاملة تنقل النتائج والأدوية والاسم والمحذوفات وملفات PDF المرفقة. الملفات تظل محلية ولا تُرسل لخادم.';
+    const intro=$('.modal-body>p');if(intro)intro.textContent=document.querySelector('meta[name="kema-cloud"]')?'النسخة الكاملة تشمل النتائج والأدوية والاسم والمحذوفات وملفات PDF. استيرادها هنا يضيفها إلى حسابك الخاص ويرفع المرفقات إلى Cloudflare.':'النسخة الكاملة تنقل النتائج والأدوية والاسم والمحذوفات وملفات PDF المرفقة. الملفات تظل محلية ولا تُرسل لخادم.';
     $('.backup-status')?.remove();$('.modal-body')?.insertAdjacentHTML('afterbegin',`<div class="backup-status"><strong>${isBackedUp()?'النسخة المنزّلة تطابق السجل الحالي':'السجل الحالي يحتاج نسخة جديدة'}</strong><small>آخر تنزيل كامل: ${stamp(info?.at)} · ${(db.documents||[]).length} مرفقات PDF</small></div>`);
     if(!$('.backup-buttons [data-action="export-data-only"]'))$('.backup-buttons')?.insertAdjacentHTML('beforeend','<button class="btn" data-action="export-data-only">JSON بدون ملفات PDF</button>');
   }

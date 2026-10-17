@@ -1,7 +1,9 @@
 import { TESTS, GROUPS, SCHEMA_VERSION, meta, validateResult, validateMedication, status, reference, series, parseCSV, toCSV, validateBackup, mergeRecords, fingerprint, timeDomain } from './core.mjs';
 import { createEnhancements } from './enhancements.mjs';
+import { createCloudSync } from './cloud.mjs';
 
-const KEY = 'kema.health.v1';
+const cloudMode=Boolean(document.querySelector('meta[name="kema-cloud"]'));
+const KEY = cloudMode?'kema.health.cloud.v1':'kema.health.v1';
 const $ = (s, root=document) => root.querySelector(s);
 const e = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const icons = {
@@ -34,7 +36,7 @@ const num = value => new Intl.NumberFormat('en-US', {maximumFractionDigits:4,use
 const badge = r => { const s = status(r); return `<span class="badge ${s.type}"><span aria-hidden="true">${s.symbol}</span> ${s.label}</span>`; };
 let db = {schemaVersion:SCHEMA_VERSION, profile:{name:''}, results:[], medications:[]};
 const ui = { test:'hba1c', group:'sugar', unit:'', range:'all', point:null, archive:{q:'',group:'all',state:'all',from:'',to:'',page:1}, storageError:'', pendingImport:null };
-let toastTimer, returnFocus, lastStored = null, recoveryRequired = false;
+let toastTimer, returnFocus, lastStored = null, recoveryRequired = false, cloud=null;
 const navItems = [['overview','grid','نظرة عامة'],['trends','chart','متابعة التحاليل'],['archive','file','سجل النتائج'],['medications','pill','الأدوية']];
 const route = () => navItems.some(n=>n[0]===location.hash.slice(1)) ? location.hash.slice(1) : 'overview';
 const additions=createEnhancements({getDB:()=>db,save,render,openModal,closeModal,toast,e,icon,date,num,download,testName,testsAvailable,details,ui,KEY,chartFor:(rows,testId)=>{const prior={test:ui.test,unit:ui.unit};try{ui.test=testId;ui.unit=rows[0]?.unit||'';return chartSVG(rows);}finally{Object.assign(ui,prior);}}});
@@ -47,7 +49,7 @@ function save(next, {recover=false} = {}) {
   try {
     if(recoveryRequired&&!recover)throw new Error('استعد نسخة سليمة من شاشة النسخ الاحتياطي قبل تعديل السجل. البيانات الأصلية لم تُمس.');
     if(localStorage.getItem(KEY)!==lastStored)throw new Error('السجل تغيّر في نافذة أخرى. أعد تحميل الصفحة قبل الحفظ لحماية آخر التعديلات.');
-    const serialized=JSON.stringify(next);localStorage.setItem(KEY, serialized);lastStored=serialized;db=next;recoveryRequired=false;ui.storageError='';$('#save-state').textContent='محفوظ على هذا المتصفح';return true;
+    const serialized=JSON.stringify(next);localStorage.setItem(KEY, serialized);lastStored=serialized;db=next;recoveryRequired=false;ui.storageError='';$('#save-state').textContent='محفوظ على هذا المتصفح';cloud?.schedule();return true;
   }
   catch(error) { ui.storageError=error.message.includes('السجل')||error.message.includes('نسخة سليمة')?error.message:'تعذّر حفظ التغييرات في المتصفح. صدّر نسخة احتياطية وتأكد من وجود مساحة وأن الحفظ مسموح.';$('#save-state').textContent='تعذّر الحفظ';toast(ui.storageError);return false; }
 }
@@ -156,10 +158,12 @@ function render() {
   $('#navigation').innerHTML=navItems.map(([id,ic,label])=>`<a class="nav-link ${current===id?'active':''}" href="#${id}" ${current===id?'aria-current="page"':''}>${icon(ic)}<span>${label}</span></a>`).join('');
   $('#breadcrumb').textContent=navItems.find(n=>n[0]===current)[2];
   document.title=`${$('#breadcrumb').textContent} — Kema · Blood Tests`;
-  $('.avatar').textContent=db.profile.name?db.profile.name[0]:'ك';
+  $('.avatar').textContent=db.profile.name?db.profile.name[0]:'K';
   const screen={overview:renderOverview,trends:renderTrends,archive:renderArchive,medications:renderMedications};
   $('#main').innerHTML=`${ui.storageError?`<div class="storage-warning" role="alert">${e(ui.storageError)}</div>`:''}${screen[current]()}`;
   additions.decorate(current);
+  if(cloudMode){const card=$('.info-card');if(card)card.innerHTML=`${icon('shield')}<h3>سجلك، معاك على أجهزتك</h3><p>نتائجك وأدويتك تتزامن مع حسابك الخاص. راجع مؤشر المزامنة قبل الانتقال لجهاز تاني، واحتفظ بنسخة احتياطية.</p><button class="text-button" data-cloud-action="panel">حسابي والمزامنة ${icon('arrow')}</button>`;}
+  cloud?.decorate();
 }
 function updateChart() {
   const panel=$('#chart-panel');if(panel)panel.outerHTML=chartPanel();
@@ -319,5 +323,10 @@ async function init() {
     }catch{/* Static deployment starts empty; user can import a private backup. */}
   }
   render();
+  if(cloudMode&&!recoveryRequired){
+    cloud=createCloudSync({getDB:()=>db,apply:next=>{const serialized=JSON.stringify(next);localStorage.setItem(KEY,serialized);lastStored=serialized;db=next;},render,openModal,closeModal,toast,e,download});
+    document.body.inert=true;
+    try{await cloud.init();}finally{document.body.inert=false;}
+  }
 }
 init();

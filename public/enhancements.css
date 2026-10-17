@@ -17,3 +17,8 @@
   .print-note,.print-end{font-size:8pt}.print-chart{break-inside:avoid;border-color:#b6c7c9}
   .print-chart svg{height:190px}.print-charts{display:block}.print-chart{margin:14px 0}
 }
+/* Cloud account controls remain usable on narrow phones. */
+.cloud-notice{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.cloud-notice .btn{flex-shrink:0}
+#cloud-button[hidden]{display:none}
+@media(max-width:600px){.topbar-left{gap:8px;flex-wrap:wrap;justify-content:flex-end}#cloud-button{font-size:10px}.cloud-notice .btn{width:100%}.topbar-left .save-state{max-width:130px}}
