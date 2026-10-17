@@ -1,0 +1,11 @@
+{
+  "worker": "kema",
+  "url": "https://kema.ahmedmansor.workers.dev",
+  "accountId": "3ccb794d60a7b0121c977ed935fd4fde",
+  "database": "kema-db",
+  "databaseId": "0485b8af-905b-4086-923b-df7601912455",
+  "privateBucket": "kema-pdfs",
+  "workerVersion": "fe3c031b-d36e-47d2-833b-a6d2daf4caee",
+  "accessConfigured": false,
+  "medicalRecordsUploaded": false
+}
