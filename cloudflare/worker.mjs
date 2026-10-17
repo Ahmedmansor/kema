@@ -20,13 +20,15 @@ export async function boundedBody(request,limit){
 }
 function decode(part){return Uint8Array.from(atob(part.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));}
 export async function verifyAccess(token,env,fetcher=fetch){
-  if(!env.ACCESS_TEAM||!env.ACCESS_AUD||!env.OWNER_EMAIL)throw new HttpError(503,'تسجيل الدخول الآمن قيد التجهيز.');
+  if(!env.ACCESS_TEAM||!env.ACCESS_AUD)throw new HttpError(503,'تسجيل الدخول الآمن قيد التجهيز.');
   if(!token||token.length>16384)throw new HttpError(401,'سجّل الدخول لفتح سجلك.');
   try{
     const parts=token.split('.');if(parts.length!==3)throw new Error();
     const header=JSON.parse(new TextDecoder().decode(decode(parts[0]))),claims=JSON.parse(new TextDecoder().decode(decode(parts[1])));
     const issuer=`https://${env.ACCESS_TEAM}.cloudflareaccess.com`,now=Date.now()/1000;
-    if(header.alg!=='RS256'||typeof header.kid!=='string'||header.kid.length>256||claims.iss!==issuer||!Number.isFinite(claims.exp)||claims.exp<=now||(claims.nbf&&claims.nbf>now+30)||!Array.isArray(claims.aud)||!claims.aud.includes(env.ACCESS_AUD)||typeof claims.email!=='string'||claims.email.toLowerCase()!==env.OWNER_EMAIL.toLowerCase())throw new Error();
+    // Access authorizes identities through this application's policy. Only its
+    // signed, unexpired application token is accepted; no second email list.
+    if(header.alg!=='RS256'||typeof header.kid!=='string'||header.kid.length>256||claims.iss!==issuer||!Number.isFinite(claims.exp)||claims.exp<=now||(claims.nbf&&claims.nbf>now+30)||!Array.isArray(claims.aud)||!claims.aud.includes(env.ACCESS_AUD)||typeof claims.email!=='string'||!claims.email.trim())throw new Error();
     const response=await fetcher(`${issuer}/cdn-cgi/access/certs`,{signal:AbortSignal.timeout(5000),cf:{cacheTtl:3600,cacheEverything:true}});
     if(!response.ok)throw new Error();
     const {keys}=await response.json(),jwk=keys.find(k=>k.kid===header.kid&&k.kty==='RSA');if(!jwk)throw new Error();
@@ -83,7 +85,7 @@ export default {
   async fetch(request,env){
     try{
       const url=new URL(request.url),path=url.pathname;
-      if(path==='/api/config')return json({cloud:true,ready:Boolean(env.ACCESS_TEAM&&env.ACCESS_AUD&&env.OWNER_EMAIL),login:'/cdn-cgi/access/login'});
+      if(path==='/api/config')return json({cloud:true,ready:Boolean(env.ACCESS_TEAM&&env.ACCESS_AUD),login:'/cdn-cgi/access/login'});
       if(path.startsWith('/api/')){
         await verifyAccess(request.headers.get('Cf-Access-Jwt-Assertion'),env);
         if(path==='/api/state')return await stateAPI(request,env);

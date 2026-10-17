@@ -5,11 +5,15 @@
   "database": "kema-db",
   "databaseId": "0485b8af-905b-4086-923b-df7601912455",
   "privateBucket": "kema-pdfs",
-  "workerVersion": "9a48788b-9796-4954-b7d1-7eb0a833af38",
+  "workerVersion": "ceae2598-3390-4433-9bd0-52f8346a234d",
   "accessConfigured": true,
   "accessApplicationId": "871eff58-de67-4452-8eb9-0ae5996cb81d",
   "accessTeam": "small-bush-dbc5",
   "medicalRecordsUploaded": true,
   "initialResultCount": 75,
-  "authenticatedReadVerified": true
+  "authenticatedReadVerified": true,
+  "authorizationSource": "Cloudflare Access application policy",
+  "applicationSessionHours": 720,
+  "policySessionHours": 720,
+  "organizationSessionUnchanged": true
 }

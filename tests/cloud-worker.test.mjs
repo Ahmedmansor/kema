@@ -7,16 +7,17 @@ import worker,{verifyAccess,boundedBody} from '../cloudflare/worker.mjs';
 const origin='https://kema.example.test';
 const pair=await crypto.subtle.generateKey({name:'RSASSA-PKCS1-v1_5',modulusLength:2048,publicExponent:new Uint8Array([1,0,1]),hash:'SHA-256'},true,['sign','verify']);
 const jwk={...await crypto.subtle.exportKey('jwk',pair.publicKey),kid:'test-key'};
-const config={ACCESS_TEAM:'test-team',ACCESS_AUD:'test-audience',OWNER_EMAIL:'owner@example.test'};
+const config={ACCESS_TEAM:'test-team',ACCESS_AUD:'test-audience'};
 const certs=async()=>Response.json({keys:[jwk]});
 async function token(overrides={}){
   const b64=data=>Buffer.from(JSON.stringify(data)).toString('base64url');
-  const parts=[b64({alg:'RS256',kid:jwk.kid}),b64({iss:'https://test-team.cloudflareaccess.com',aud:['test-audience'],email:config.OWNER_EMAIL,exp:Math.floor(Date.now()/1000)+3600,...overrides})];
+  const parts=[b64({alg:'RS256',kid:jwk.kid}),b64({iss:'https://test-team.cloudflareaccess.com',aud:['test-audience'],email:'owner@example.test',exp:Math.floor(Date.now()/1000)+3600,...overrides})];
   return parts.join('.')+'.'+Buffer.from(await crypto.subtle.sign('RSASSA-PKCS1-v1_5',pair.privateKey,new TextEncoder().encode(parts.join('.')))).toString('base64url');
 }
 test('Access checks signed identity, audience, issuer, expiry; rejects spoofing',async()=>{
-  assert.equal(await verifyAccess(await token(),config,certs),config.OWNER_EMAIL);
-  for(const claims of [{email:'other@example.test'},{aud:['another-app']},{exp:1},{iss:'https://fake.test'},{nbf:Date.now()/1000+1000}])await assert.rejects(async()=>verifyAccess(await token(claims),config,certs),{status:401});
+  assert.equal(await verifyAccess(await token(),config,certs),'owner@example.test');
+  assert.equal(await verifyAccess(await token({email:'approved-family@example.test'}),config,certs),'approved-family@example.test');
+  for(const claims of [{email:''},{email:null},{aud:['another-app']},{exp:1},{iss:'https://fake.test'},{nbf:Date.now()/1000+1000}])await assert.rejects(async()=>verifyAccess(await token(claims),config,certs),{status:401});
   const valid=await token();await assert.rejects(()=>verifyAccess(valid.slice(0,-8)+'abcdefgh',config,certs),{status:401});
   await assert.rejects(()=>verifyAccess(null,config,certs),{status:401});
   await assert.rejects(()=>verifyAccess(null,{},certs),{status:503});
