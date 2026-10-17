@@ -1,4 +1,5 @@
 import { validateBackup } from '../public/core.mjs';
+import { createProfileAPI } from './profiles.mjs';
 
 const LIMIT=1024*1024;
 const securityHeaders={
@@ -41,29 +42,10 @@ export function checkOrigin(request){
   const origin=request.headers.get('Origin');
   if(origin!==new URL(request.url).origin||request.headers.get('Sec-Fetch-Site')==='cross-site')throw new HttpError(403,'طلب الحفظ يجب أن يأتي من موقع Kema نفسه.');
 }
-async function sessionFor(identity,env){
-  const owner=identity.email===env.OWNER_EMAIL?.toLowerCase();
-  const row=owner?null:await env.DB.prepare('SELECT role FROM kema_roles WHERE email=?').bind(identity.email).first();
-  return {...identity,role:owner?'owner':row?.role==='editor'?'editor':'viewer'};
-}
-async function rolesAPI(request,env,session){
-  if(session.role!=='owner')throw new HttpError(403,'إدارة الصلاحيات متاحة لصاحب الحساب فقط.');
+const profiles=createProfileAPI({json,boundedBody,checkOrigin});
+async function stateAPI(request,env,profileId){
   if(request.method==='GET'){
-    const rows=await env.DB.prepare('SELECT email,role FROM kema_roles ORDER BY email').all();
-    return json({roles:rows.results,owner:session.email});
-  }
-  if(request.method!=='PUT')return json({error:'طريقة غير مدعومة.'},405);
-  checkOrigin(request);
-  let input;try{input=JSON.parse(new TextDecoder().decode(await boundedBody(request,2048)));}catch(error){if(error.status)throw error;throw new HttpError(400,'بيانات الصلاحية غير صالحة.');}
-  const email=typeof input.email==='string'?input.email.trim().toLowerCase():'';
-  if(email.length>254||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||!['editor','viewer'].includes(input.role))throw new HttpError(400,'اكتب إيميلًا صحيحًا واختَر الصلاحية.');
-  if(email===env.OWNER_EMAIL?.toLowerCase())throw new HttpError(400,'صلاحية صاحب الحساب ثابتة.');
-  await env.DB.prepare('INSERT INTO kema_roles(email,role) VALUES(?,?) ON CONFLICT(email) DO UPDATE SET role=excluded.role').bind(email,input.role).run();
-  return json({ok:true});
-}
-async function stateAPI(request,env){
-  if(request.method==='GET'){
-    const row=await env.DB.prepare("SELECT revision,data,updated_at FROM kema_state WHERE id='main'").first();
+    const row=await env.DB.prepare('SELECT revision,data,updated_at FROM kema_profile_state WHERE profile_id=?').bind(profileId).first();
     return json({revision:row.revision,data:row.data?JSON.parse(row.data):null,updatedAt:row.updated_at});
   }
   if(request.method!=='PUT')return json({error:'طريقة غير مدعومة.'},405);
@@ -74,31 +56,32 @@ async function stateAPI(request,env){
   let data;try{data=validateBackup(input.data);}catch(error){throw new HttpError(400,error.message);}
   if(data.documents.length>500||data.trash.length>25000)throw new HttpError(413,'عدد المرفقات أو المحذوفات أكبر من الحد المسموح.');
   for(const list of [data.results,data.medications])if(new Set(list.map(r=>r.id)).size!==list.length)throw new HttpError(400,'معرّفات سجلات مكررة.');
-  const old=await env.DB.prepare("SELECT data,revision FROM kema_state WHERE id='main'").first();
+  const old=await env.DB.prepare('SELECT data,revision FROM kema_profile_state WHERE profile_id=?').bind(profileId).first();
   if(old.revision!==input.revision)return json({error:'السجل اتغيّر من جهاز تاني. راجع النسختين قبل المزامنة.',conflict:true},409);
   const prior=new Set(old.data?JSON.parse(old.data).documents?.map(d=>d.id):[]);
-  for(const doc of data.documents.filter(d=>!prior.has(d.id))){const file=await env.PDFS.head(doc.id);if(!file||file.size!==doc.size)throw new HttpError(400,'ارفع ملفات PDF المرفقة أولًا قبل حفظ السجل.');}
+  for(const doc of data.documents.filter(d=>!prior.has(d.id))){const file=await env.PDFS.head(`${profileId}/${doc.id}`);if(!file||file.size!==doc.size)throw new HttpError(400,'ارفع ملفات PDF المرفقة أولًا قبل حفظ السجل.');}
   const serialized=JSON.stringify(data);if(new TextEncoder().encode(serialized).length>LIMIT)throw new HttpError(413,'السجل أكبر من الحد المدعوم للمزامنة.');
   const at=new Date().toISOString();
   const result=await env.DB.batch([
-    env.DB.prepare("INSERT OR IGNORE INTO kema_history(revision,data,updated_at) SELECT revision,data,updated_at FROM kema_state WHERE id='main' AND revision=? AND data IS NOT NULL").bind(input.revision),
-    env.DB.prepare("UPDATE kema_state SET data=?,revision=revision+1,updated_at=? WHERE id='main' AND revision=?").bind(serialized,at,input.revision),
-    env.DB.prepare('DELETE FROM kema_history WHERE revision < ?').bind(Math.max(0,input.revision-29))
+    env.DB.prepare("INSERT OR IGNORE INTO kema_profile_history(profile_id,revision,data,updated_at) SELECT profile_id,revision,data,updated_at FROM kema_profile_state WHERE profile_id=? AND revision=? AND data IS NOT NULL").bind(profileId,input.revision),
+    env.DB.prepare('UPDATE kema_profile_state SET data=?,revision=revision+1,updated_at=? WHERE profile_id=? AND revision=?').bind(serialized,at,profileId,input.revision),
+    env.DB.prepare('DELETE FROM kema_profile_history WHERE profile_id=? AND revision < ?').bind(profileId,Math.max(0,input.revision-29))
   ]);
   if(result[1].meta.changes!==1)return json({error:'السجل اتغيّر من جهاز تاني. راجع النسختين قبل المزامنة.',conflict:true},409);
   return json({revision:input.revision+1,updatedAt:at});
 }
-async function documentAPI(request,env,id){
+async function documentAPI(request,env,id,profileId){
+  const key=`${profileId}/${id}`;
   if(!/^pdf_[a-f0-9]{64}$/.test(id))throw new HttpError(400,'معرّف الملف غير صالح.');
   if(request.method==='PUT'){
     checkOrigin(request);const bytes=await boundedBody(request,15*1024*1024);
     if(bytes.length<5||new TextDecoder().decode(bytes.slice(0,5))!=='%PDF-')throw new HttpError(400,'محتوى الملف ليس PDF.');
     const hash=[...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))].map(b=>b.toString(16).padStart(2,'0')).join('');
     if(id!==`pdf_${hash}`)throw new HttpError(400,'بصمة الملف غير مطابقة.');
-    await env.PDFS.put(id,bytes,{httpMetadata:{contentType:'application/pdf'}});return json({ok:true});
+    await env.PDFS.put(key,bytes,{httpMetadata:{contentType:'application/pdf'}});return json({ok:true});
   }
   if(!['GET','HEAD'].includes(request.method))return json({error:'طريقة غير مدعومة.'},405);
-  const file=await (request.method==='HEAD'?env.PDFS.head(id):env.PDFS.get(id));if(!file)return json({error:'الملف غير موجود.'},404);
+  const file=await (request.method==='HEAD'?env.PDFS.head(key):env.PDFS.get(key));if(!file)return json({error:'الملف غير موجود.'},404);
   return new Response(request.method==='HEAD'?null:file.body,{headers:{...securityHeaders,'Content-Type':'application/pdf','Content-Length':String(file.size),'Content-Disposition':'inline; filename="report.pdf"'}});
 }
 export default {
@@ -107,12 +90,17 @@ export default {
       const url=new URL(request.url),path=url.pathname;
       if(path==='/api/config')return json({cloud:true,ready:Boolean(env.ACCESS_TEAM&&env.ACCESS_AUD),login:'/cdn-cgi/access/login'});
       if(path.startsWith('/api/')){
-        const session=await sessionFor(await verifyAccess(request.headers.get('Cf-Access-Jwt-Assertion'),env),env);
-        if(path==='/api/session'&&request.method==='GET')return json(session);
-        if(path==='/api/roles')return await rolesAPI(request,env,session);
-        if(!['GET','HEAD'].includes(request.method)&&session.role==='viewer')throw new HttpError(403,'حسابك للقراءة فقط؛ لا يمكن تعديل السجل أو رفع ملفات.');
-        if(path==='/api/state')return await stateAPI(request,env);
-        if(path.startsWith('/api/documents/'))return await documentAPI(request,env,path.slice('/api/documents/'.length));
+        const identity=await verifyAccess(request.headers.get('Cf-Access-Jwt-Assertion'),env);
+        if(path==='/api/session'&&request.method==='GET')return json(identity);
+        if(path==='/api/profiles')return await profiles.profilesAPI(request,env,identity);
+        const match=path.match(/^\/api\/profiles\/([a-zA-Z0-9_-]{1,80})\/(session|state|roles|documents\/pdf_[a-f0-9]{64})$/);
+        if(!match)return json({error:'حدّث الصفحة لاستخدام الملفات الصحية المستقلة.'},409);
+        const [,profileId,resource]=match,session=await profiles.sessionFor(identity,env,profileId);
+        if(resource==='session'&&request.method==='GET')return json(session);
+        if(resource==='roles')return await profiles.rolesAPI(request,env,session);
+        if(!['GET','HEAD'].includes(request.method)&&session.role==='viewer')throw new HttpError(403,'حسابك للقراءة فقط في هذا الملف.');
+        if(resource==='state')return await stateAPI(request,env,profileId);
+        if(resource.startsWith('documents/'))return await documentAPI(request,env,resource.slice('documents/'.length),profileId);
         return json({error:'المسار غير موجود.'},404);
       }
       if(!['GET','HEAD'].includes(request.method))return json({error:'طريقة غير مدعومة.'},405);

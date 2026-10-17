@@ -1,9 +1,13 @@
 import { TESTS, GROUPS, SCHEMA_VERSION, meta, validateResult, validateMedication, status, reference, series, parseCSV, toCSV, validateBackup, mergeRecords, fingerprint, timeDomain } from './core.mjs';
 import { createEnhancements } from './enhancements.mjs';
 import { createCloudSync } from './cloud.mjs';
+import { prepareCloudAccount } from './profiles.mjs';
+import { configureDocumentScope } from './documents.mjs';
 
 const cloudMode=Boolean(document.querySelector('meta[name="kema-cloud"]'));
-const KEY = cloudMode?'kema.health.cloud.v1':'kema.health.v1';
+const account=cloudMode?await prepareCloudAccount().catch(error=>({error:error.message})):null;
+const KEY = cloudMode?(account.scope?account.scope+'.health':'kema.cloud.locked'):'kema.health.v1';
+if(cloudMode&&account.scope)configureDocumentScope(account.scope,account.base);
 const $ = (s, root=document) => root.querySelector(s);
 const e = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const icons = {
@@ -329,6 +333,7 @@ window.addEventListener('storage',event=>{
   }
 });
 async function init() {
+  if(cloudMode&&account.error){ui.storageError=account.error;render();return;}
   let raw;
   try {raw=localStorage.getItem(KEY);lastStored=raw;}catch{ui.storageError='المتصفح يمنع التخزين المحلي. لن يتم اعتماد تغييرات قبل تفعيل الحفظ.';}
   if(raw) {
@@ -341,7 +346,7 @@ async function init() {
   }
   render();
   if(cloudMode&&!recoveryRequired){
-    cloud=createCloudSync({getDB:()=>db,apply:next=>{const serialized=JSON.stringify(next);localStorage.setItem(KEY,serialized);lastStored=serialized;db=next;},sessionChanged:applyPermissions,render,openModal,closeModal,toast,e,download});
+    cloud=createCloudSync({account,getDB:()=>db,apply:next=>{const serialized=JSON.stringify(next);localStorage.setItem(KEY,serialized);lastStored=serialized;db=next;},sessionChanged:applyPermissions,render,openModal,closeModal,toast,e,download});
     document.body.inert=true;
     try{await cloud.init();}finally{document.body.inert=false;}
   }

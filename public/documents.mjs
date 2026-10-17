@@ -1,10 +1,17 @@
 const DB_NAME='kema.documents.v1';
 const STORE='pdfs';
 let connection;
+let cloudScope='',cloudBase='';
+export function configureDocumentScope(scope,base){
+  if(connection)throw new Error('أعد فتح الصفحة قبل تغيير الملف الصحي.');
+  cloudScope=scope;cloudBase=base;
+}
 async function database(){
   if(!globalThis.indexedDB)throw new Error('هذا المتصفح لا يدعم حفظ المرفقات. جرّب متصفحًا حديثًا.');
   if(!connection)connection=new Promise((resolve,reject)=>{
-    const request=indexedDB.open(globalThis.document?.querySelector('meta[name="kema-cloud"]')?DB_NAME+'.cloud':DB_NAME,1);
+    const cloud=globalThis.document?.querySelector('meta[name="kema-cloud"]');
+    if(cloud&&!cloudScope){reject(new Error('اختَر ملفًا صحيًا قبل فتح المرفقات.'));return;}
+    const request=indexedDB.open(cloud?DB_NAME+'.'+cloudScope:DB_NAME,1);
     request.onupgradeneeded=()=>request.result.createObjectStore(STORE);
     request.onsuccess=()=>resolve(request.result);
     request.onerror=()=>reject(new Error('تعذّر فتح مخزن ملفات PDF. تأكد أن التخزين مسموح.'));
@@ -16,7 +23,7 @@ export async function readDocument(id){
   const db=await database();
   const local=await new Promise((resolve,reject)=>{const request=db.transaction(STORE,'readonly').objectStore(STORE).get(id);request.onsuccess=()=>resolve(request.result||null);request.onerror=()=>reject(new Error('تعذّر قراءة ملف PDF.'));});
   if(local||!globalThis.document?.querySelector('meta[name="kema-cloud"]'))return local;
-  const response=await fetch(`/api/documents/${encodeURIComponent(id)}`,{cache:'no-store',redirect:'error'});
+  const response=await fetch(`${cloudBase}/documents/${encodeURIComponent(id)}`,{cache:'no-store',redirect:'error'});
   if(response.status===404)return null;
   if(!response.ok||!response.headers.get('Content-Type')?.includes('application/pdf'))throw new Error('تعذّر تحميل الملف. أعد تسجيل الدخول أو راجع اتصال الإنترنت.');
   const blob=await response.blob();await putDocuments([{id,blob}]);return blob;

@@ -26,3 +26,5 @@
 .account-session{padding-bottom:20px;margin-bottom:20px;border-bottom:1px solid var(--border,#dce5e4)}
 .account-session .details-list dd{margin:0;overflow-wrap:anywhere}
 #cloud-role-form .details-list strong{overflow-wrap:anywhere}
+.profile-switcher{max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:700px){.topbar-left{flex-wrap:wrap;gap:8px}.topbar{height:auto;min-height:70px;padding-top:10px;padding-bottom:10px}.profile-switcher{max-width:190px;font-size:11px}}

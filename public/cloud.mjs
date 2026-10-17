@@ -1,19 +1,31 @@
 import { validateBackup } from './core.mjs';
 import { readDocument } from './documents.mjs';
+import { cloudRequest } from './profiles.mjs';
 
 // Local outbox + server revisions. A conflict always needs an explicit choice.
 export function createCloudSync(ctx){
-  const metaKey='kema.cloud.sync.v1';
+  const {account}=ctx,base=account.base,metaKey=account.scope+'.sync',recoveryKey=account.scope+'.recovery';
   let meta={revision:0,dirty:false},state='loading',message='جارٍ الاتصال بسجلك…',timer,busy=false,remoteConflict=null,stopped=false;
   let session=null;
   const canEdit=()=>['owner','editor'].includes(session?.role);
-  async function loadSession(){session=await api('/api/session');ctx.sessionChanged?.(session);return session;}
+  async function loadSession(){
+    try{session=await api('/api/session');if(session.profileId!==account.selected.id)throw new Error('الملف الصحي غير مطابق؛ أعد فتح الصفحة.');ctx.sessionChanged?.(session);return session;}
+    catch(error){
+      if([401,403,404].includes(error.status)){
+        session=null;stopped=true;
+        if(meta.dirty)localStorage.setItem(recoveryKey,JSON.stringify({at:new Date().toISOString(),data:ctx.getDB()}));
+        meta.dirty=false;persist();ctx.apply({schemaVersion:1,profile:{name:''},results:[],medications:[],documents:[],trash:[]});ctx.sessionChanged?.(null);ctx.render();
+      }
+      throw error;
+    }
+  }
   try{meta={...meta,...JSON.parse(localStorage.getItem(metaKey)||'{}')};}catch{meta.dirty=true;}
   const persist=()=>localStorage.setItem(metaKey,JSON.stringify(meta));
   const stamp=value=>value?new Date(value).toLocaleString('ar-EG',{numberingSystem:'latn'}):'—';
   const set=(next,text)=>{state=next;message=text;decorate();};
   async function api(path,options={}){
-    const response=await fetch(path,{credentials:'same-origin',cache:'no-store',redirect:'error',signal:AbortSignal.timeout(options.method==='PUT'?60000:10000),...options});
+    const scoped=path==='/api/config'?path:base+path.slice('/api'.length);
+    const response=await fetch(scoped,{credentials:'same-origin',cache:'no-store',redirect:'error',signal:AbortSignal.timeout(options.method==='PUT'?60000:10000),...options});
     let data;try{data=await response.json();}catch{throw new Error('سجّل الدخول مجددًا لفتح اتصال آمن بالسجل.');}
     if(!response.ok){const error=new Error(data.error||'تعذّر الاتصال بالسحابة.');error.status=response.status;throw error;}return data;
   }
@@ -27,6 +39,8 @@ export function createCloudSync(ctx){
       const button=document.createElement('button');button.className='btn btn-soft';button.dataset.cloudAction='panel';button.textContent='تفاصيل المزامنة';notice.append(text,button);document.querySelector('#main').prepend(notice);
     }
     const button=document.querySelector('#cloud-button');if(button)button.hidden=false;
+    if(!document.querySelector('#profile-button')&&button?.insertAdjacentElement){const picker=document.createElement('button');picker.id='profile-button';picker.className='btn btn-small profile-switcher';picker.dataset.cloudAction='profiles';button.insertAdjacentElement('afterend',picker);}
+    const picker=document.querySelector('#profile-button');if(picker)picker.textContent=`الملف: ${ctx.getDB().profile?.name||account.selected.name} ▾`;
   }
   function applyRemote(remote){
     ctx.apply(validateBackup(remote.data||{schemaVersion:1,profile:{name:''},results:[],medications:[],documents:[],trash:[]}));
@@ -34,7 +48,7 @@ export function createCloudSync(ctx){
   }
   async function uploadDocuments(snapshot){
     for(const doc of snapshot.documents||[]){
-      const path=`/api/documents/${doc.id}`,head=await fetch(path,{method:'HEAD',redirect:'error',cache:'no-store'});
+      const path=`/api/documents/${doc.id}`,head=await fetch(base+path.slice('/api'.length),{method:'HEAD',redirect:'error',cache:'no-store'});
       if(head.ok)continue;
       if(head.status!==404)throw new Error('تعذّر التحقق من مرفقات السحابة. أعد تسجيل الدخول.');
       const blob=await readDocument(doc.id);if(!blob)throw new Error(`ملف ${doc.name} غير متاح على الجهاز. استعده من النسخة الكاملة أولًا.`);
@@ -53,7 +67,7 @@ export function createCloudSync(ctx){
       meta.revision=saved.revision;meta.updatedAt=saved.updatedAt;meta.dirty=JSON.stringify(ctx.getDB())!==signature;persist();
       set(meta.dirty?'pending':'ready',meta.dirty?'تغييرات جديدة في انتظار المزامنة':'متزامن مع حسابك');
     }catch(error){
-      meta.dirty=true;persist();
+      if(!stopped){meta.dirty=true;persist();}
       if(error.status===409){set('conflict','فيه تعديلات من جهاز تاني؛ راجع النسختين.');try{remoteConflict=await api('/api/state');}catch{/* Keep local changes until the cloud can be read. */}}
       else set('offline',navigator.onLine?error.message:'بدون إنترنت · التغييرات محفوظة على الجهاز، وفي انتظار المزامنة');
     }finally{busy=false;if(meta.dirty&&state==='pending')timer=setTimeout(()=>void push(),500);}
@@ -77,16 +91,30 @@ export function createCloudSync(ctx){
   }
   function panel(){
     const counts=data=>`${data?.results?.length||0} نتيجة · ${data?.medications?.length||0} أدوية`,conflict=state==='conflict';
-    const body=`<div class="modal-body"><p>${ctx.e(message)}</p><div class="details-list"><div><strong>هذا الجهاز</strong><span>${counts(ctx.getDB())}</span></div><div><strong>آخر مزامنة</strong><span>${ctx.e(stamp(meta.updatedAt))}</span></div>${conflict?`<div><strong>نسخة السحابة</strong><span>${counts(remoteConflict?.data)}<br>${ctx.e(stamp(remoteConflict?.updatedAt))}</span></div>`:''}</div><p>النتائج والأدوية متاحة لأجهزتك بعد تسجيل الدخول. ملفات PDF تُرفع إلى مخزن خاص. يحتفظ الخادم بآخر 30 نسخة سابقة للسجل.</p>${conflict?'<p class="storage-warning">توقف الحفظ للسحابة لحماية تعديلات الجهازين. نزّل نسخة هذا الجهاز، ثم اختار النسخة التي تريد اعتمادها. اعتماد السحابة يحفظ أيضًا نسخة استرجاع محلية من تعديلاتك.</p>':''}${stopped?'<p>المشروع جاهز، وتفعيل حماية الدخول لم يكتمل بعد. السجل السحابي مقفول لحين إتمامه.</p>':''}</div>`;
-    const footer=`<button class="btn" data-cloud-action="download">تنزيل بيانات هذا الجهاز</button>${conflict?'<button class="btn" data-cloud-action="use-cloud">اعتماد نسخة السحابة</button><button class="btn btn-primary" data-cloud-action="use-local">اعتماد نسخة هذا الجهاز</button>':'<button class="btn btn-primary" data-cloud-action="retry">مزامنة الآن</button>'}${localStorage.getItem('kema.cloud.recovery.v1')?'<button class="btn" data-cloud-action="recovery">نسخة ما قبل حل التعارض</button>':''}<a class="btn" href="/cdn-cgi/access/login">تجديد الدخول</a>`;
-    const account=`<section class="account-session"><h3>حسابي</h3><dl class="details-list"><div><dt>الإيميل</dt><dd dir="ltr">${ctx.e(session?.email||'تعذّر قراءة الحساب')}</dd></div><div><dt>الصلاحية</dt><dd>${{owner:'صاحب الحساب',editor:'قراءة وتعديل',viewer:'قراءة فقط'}[session?.role]||'غير متاحة'}</dd></div><div><dt>بداية الجلسة</dt><dd>${ctx.e(stamp(session?.issuedAt))}</dd></div><div><dt>انتهاء الجلسة</dt><dd>${ctx.e(stamp(session?.expiresAt))}</dd></div></dl><p class="small-help">المواعيد بتوقيت جهازك. الموعد يخص الجلسة الحالية؛ تغيير مدة الجلسة لا يمدد رمزًا صدر سابقًا.</p>${session?.role==='viewer'?'<p>تقدر تشوف النتائج والمنحنيات والمرفقات وتصدّر نسخة، بدون تعديل أو رفع ملفات.</p>':''}${session?.role==='owner'?'<button class="btn" data-cloud-action="roles">إدارة صلاحيات الحسابات</button>':''}</section>`;
-    ctx.openModal('حسابي والمزامنة',body.replace('<div class="modal-body">',`<div class="modal-body">${account}`),footer.replace('<button class="btn btn-primary" data-cloud-action="use-local">',`<button class="btn btn-primary" data-cloud-action="use-local" ${canEdit()?'':'disabled'}>`));
+    const body=`<div class="modal-body"><p>${ctx.e(message)}</p><div class="details-list"><div><strong>هذا الجهاز</strong><span>${counts(ctx.getDB())}</span></div><div><strong>آخر مزامنة</strong><span>${ctx.e(stamp(meta.updatedAt))}</span></div>${conflict?`<div><strong>نسخة السحابة</strong><span>${counts(remoteConflict?.data)}<br>${ctx.e(stamp(remoteConflict?.updatedAt))}</span></div>`:''}</div><p>النتائج والأدوية متاحة لأجهزتك بعد تسجيل الدخول. ملفات PDF تُرفع إلى مخزن خاص. يحتفظ الخادم بآخر 30 نسخة سابقة للسجل.</p>${conflict?'<p class="storage-warning">توقف الحفظ للسحابة لحماية تعديلات الجهازين. نزّل نسخة هذا الجهاز، ثم اختار النسخة التي تريد اعتمادها. اعتماد السحابة يحفظ أيضًا نسخة استرجاع محلية من تعديلاتك.</p>':''}${state==='setup'?'<p>المشروع جاهز، وتفعيل حماية الدخول لم يكتمل بعد. السجل السحابي مقفول لحين إتمامه.</p>':''}</div>`;
+    const footer=`<button class="btn" data-cloud-action="download">تنزيل بيانات هذا الجهاز</button>${conflict?'<button class="btn" data-cloud-action="use-cloud">اعتماد نسخة السحابة</button><button class="btn btn-primary" data-cloud-action="use-local">اعتماد نسخة هذا الجهاز</button>':'<button class="btn btn-primary" data-cloud-action="retry">مزامنة الآن</button>'}${localStorage.getItem(recoveryKey)?'<button class="btn" data-cloud-action="recovery">نسخة ما قبل حل التعارض</button>':''}<a class="btn" href="/cdn-cgi/access/login">تجديد الدخول</a>`;
+    const accountInfo=`<section class="account-session"><h3>حسابي</h3><dl class="details-list"><div><dt>الإيميل</dt><dd dir="ltr">${ctx.e(session?.email||'تعذّر قراءة الحساب')}</dd></div><div><dt>الملف الصحي</dt><dd>${ctx.e(ctx.getDB().profile?.name||account.selected.name)}</dd></div><div><dt>صلاحيتك في الملف</dt><dd>${{owner:'صاحب الملف',editor:'قراءة وتعديل',viewer:'قراءة فقط'}[session?.role]||'غير متاحة'}</dd></div><div><dt>بداية الجلسة</dt><dd>${ctx.e(stamp(session?.issuedAt))}</dd></div><div><dt>انتهاء الجلسة</dt><dd>${ctx.e(stamp(session?.expiresAt))}</dd></div></dl><p class="small-help">المواعيد بتوقيت جهازك. الموعد يخص الجلسة الحالية؛ تغيير مدة الجلسة لا يمدد رمزًا صدر سابقًا.</p>${session?.role==='viewer'?'<p>تقدر تشوف النتائج والمنحنيات والمرفقات وتصدّر نسخة، بدون تعديل أو رفع ملفات.</p>':''}<button class="btn" data-cloud-action="profiles">ملفاتي الصحية</button>${session?.role==='owner'?'<button class="btn" data-cloud-action="roles">مشاركة هذا الملف</button>':''}</section>`;
+    ctx.openModal('حسابي والمزامنة',body.replace('<div class="modal-body">',`<div class="modal-body">${accountInfo}`),footer.replace('<button class="btn btn-primary" data-cloud-action="use-local">',`<button class="btn btn-primary" data-cloud-action="use-local" ${canEdit()?'':'disabled'}>`));
+  }
+  const canSwitch=()=>{if(busy||meta.dirty||state==='conflict'){ctx.toast('انتظر مزامنة التغييرات أو نزّل نسخة قبل تبديل الملف.');return false;}return true;};
+  function switchProfile(id){
+    if(!canSwitch())return;
+    const url=new URL(location.href);url.searchParams.set('profile',id);url.hash='overview';location.assign(url.href);
+  }
+  async function profilesPanel(){
+    const data=await cloudRequest('/api/profiles');account.profiles=data.profiles;
+    const labels={owner:'ملفي · أستطيع المشاركة',editor:'مشارك معي · قراءة وتعديل',viewer:'مشارك معي · قراءة فقط'};
+    ctx.openModal('ملفاتي الصحية',`<div class="modal-body"><p>كل ملف له نتائج وأدوية ومرفقات مستقلة. لا تظهر لك إلا ملفاتك والملفات التي شاركها أصحابها معك.</p><label class="field"><span>الملف الصحي</span><select class="select" id="cloud-profile-choice">${data.profiles.map(p=>`<option value="${ctx.e(p.id)}" ${p.id===account.selected.id?'selected':''}>${ctx.e(p.name||'ملف صحي')} — ${labels[p.role]}</option>`).join('')}</select></label><button class="btn btn-primary" data-cloud-action="switch-profile">فتح الملف المختار</button><hr><form id="cloud-profile-form"><label class="field"><span>إضافة ملف لشخص آخر أو لنفسك</span><input name="name" required maxlength="120" placeholder="اسم صاحب الملف"></label><p class="small-help">يبدأ الملف فاضيًا، ويكون خاصًا بك حتى تشاركه مع إيميل آخر.</p><button type="submit" class="btn">إنشاء ملف مستقل</button></form></div><div class="modal-footer"><button class="btn" data-cloud-action="panel">رجوع لحسابي</button></div>`);
   }
   async function rolesPanel(){
     const data=await api('/api/roles');
-    ctx.openModal('صلاحيات الحسابات',`<form id="cloud-role-form"><div class="modal-body"><p>السماح بالدخول يتم أولًا من قائمة الإيميلات في Cloudflare Access. الحسابات المسموح لها هناك تكون للقراءة فقط افتراضيًا. هذه الشاشة تحدد من يستطيع التعديل.</p><div class="details-list"><div><strong dir="ltr">${ctx.e(data.owner)}</strong><span>صاحب الحساب</span></div>${data.roles.filter(r=>r.email!==data.owner).map(r=>`<div><strong dir="ltr">${ctx.e(r.email)}</strong><span>${r.role==='editor'?'قراءة وتعديل':'قراءة فقط'}</span></div>`).join('')}</div><label class="field"><span>الإيميل</span><input name="email" type="email" required maxlength="254" dir="ltr" autocomplete="off"></label><label class="field"><span>الصلاحية</span><select name="role" class="select"><option value="viewer">قراءة فقط</option><option value="editor">قراءة وتعديل</option></select></label><p>كل الحسابات تشاهد نفس السجل. سحب التعديل يُطبّق على الطلب التالي للخادم، بدون انتظار انتهاء الجلسة.</p></div><div class="modal-footer"><button class="btn btn-primary" type="submit">حفظ الصلاحية</button><button class="btn" type="button" data-cloud-action="panel">رجوع لحسابي</button></div></form>`);
+    ctx.openModal('مشاركة الملف الصحي',`<form id="cloud-role-form"><div class="modal-body"><p>هذا الملف خاص بك. شاركه بإيميل محدد بصلاحية قراءة أو تعديل. الإيميلات الأخرى لا تراه، والسماح بالدخول للموقع عبر Cloudflare وحده لا يشارك أي ملف. الإيميل المدعو يحتاج السماح له بالدخول في Cloudflare Access أيضًا.</p><div class="details-list"><div><strong dir="ltr">${ctx.e(data.owner)}</strong><span>صاحب الملف</span></div>${data.roles.filter(r=>r.email!==data.owner).map(r=>`<div><strong dir="ltr">${ctx.e(r.email)}</strong><span>${r.role==='editor'?'قراءة وتعديل':'قراءة فقط'}</span><button class="btn btn-small" type="button" data-cloud-action="unshare" data-email="${ctx.e(r.email)}">إلغاء المشاركة</button></div>`).join('')}</div><label class="field"><span>الإيميل</span><input name="email" type="email" required maxlength="254" dir="ltr" autocomplete="off"></label><label class="field"><span>الصلاحية</span><select name="role" class="select"><option value="viewer">قراءة فقط</option><option value="editor">قراءة وتعديل</option></select></label><p>الصلاحية تخص الملف المفتوح فقط. إلغاء المشاركة يمنع الوصول إليه في الطلب التالي للخادم.</p></div><div class="modal-footer"><button class="btn btn-primary" type="submit">حفظ الصلاحية</button><button class="btn" type="button" data-cloud-action="panel">رجوع لحسابي</button></div></form>`);
   }
   document.addEventListener('submit',async event=>{
+    if(event.target.id==='cloud-profile-form'){
+      event.preventDefault();if(!canSwitch())return;const button=event.target.querySelector('[type="submit"]');button.disabled=true;
+      try{const created=await cloudRequest('/api/profiles',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.fromEntries(new FormData(event.target)))});switchProfile(created.id);}catch(error){ctx.toast(error.message);button.disabled=false;}return;
+    }
     if(event.target.id!=='cloud-role-form')return;
     event.preventDefault();const button=event.target.querySelector('[type="submit"]');button.disabled=true;
     try{await api('/api/roles',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.fromEntries(new FormData(event.target)))});await rolesPanel();ctx.toast('تم حفظ الصلاحية.');}catch(error){ctx.toast(error.message);}finally{button.disabled=false;}
@@ -94,6 +122,9 @@ export function createCloudSync(ctx){
   document.addEventListener('click',async event=>{
     const button=event.target.closest('[data-cloud-action]');if(!button)return;
     const action=button.dataset.cloudAction;
+    if(action==='profiles'){try{await profilesPanel();}catch(error){ctx.toast(error.message);}return;}
+    if(action==='switch-profile'){const id=document.querySelector('#cloud-profile-choice')?.value;if(account.profiles.some(p=>p.id===id))switchProfile(id);return;}
+    if(action==='unshare'){try{await api('/api/roles',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:button.dataset.email})});await rolesPanel();ctx.toast('تم إلغاء مشاركة هذا الملف.');}catch(error){ctx.toast(error.message);}return;}
     if(action==='roles'){try{await rolesPanel();}catch(error){ctx.toast(error.message);}return;}
     if(action==='use-local'&&!canEdit()){ctx.toast('حسابك للقراءة فقط.');return;}
     if(action==='panel'){if(state==='conflict'&&!remoteConflict){try{remoteConflict=await api('/api/state');}catch{}}panel();return;}
