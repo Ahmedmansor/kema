@@ -5,7 +5,7 @@
   "database": "kema-db",
   "databaseId": "0485b8af-905b-4086-923b-df7601912455",
   "privateBucket": "kema-pdfs",
-  "workerVersion": "ceae2598-3390-4433-9bd0-52f8346a234d",
+  "workerVersion": "c55ec375-889f-448e-b782-8119314543ef",
   "accessConfigured": true,
   "accessApplicationId": "871eff58-de67-4452-8eb9-0ae5996cb81d",
   "accessTeam": "small-bush-dbc5",
@@ -15,5 +15,8 @@
   "authorizationSource": "Cloudflare Access application policy",
   "applicationSessionHours": 720,
   "policySessionHours": 720,
-  "organizationSessionUnchanged": true
+  "organizationSessionUnchanged": true,
+  "defaultRecordRole": "viewer",
+  "recordRolesTable": "kema_roles",
+  "accountSessionDisplay": true
 }

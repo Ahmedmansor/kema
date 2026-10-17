@@ -39,6 +39,22 @@ const ui = { test:'hba1c', group:'sugar', unit:'', range:'all', point:null, arch
 let toastTimer, returnFocus, lastStored = null, recoveryRequired = false, cloud=null;
 const navItems = [['overview','grid','نظرة عامة'],['trends','chart','متابعة التحاليل'],['archive','file','سجل النتائج'],['medications','pill','الأدوية']];
 const route = () => navItems.some(n=>n[0]===location.hash.slice(1)) ? location.hash.slice(1) : 'overview';
+const writeActions=new Set(['profile','add-result','edit-result','delete-result','add-med','edit-med','delete-med','confirm-delete','confirm-import','new-report','add-report-row','remove-report-row','attach-document','restore-item','undo-delete','import-enhanced']);
+const writeForms=new Set(['result-form','med-form','profile-form','report-form','attach-form','review-form']);
+const canWrite=()=>!cloudMode||Boolean(cloud?.canEdit());
+function applyPermissions(){
+  if(!cloudMode)return;
+  const readonly=!canWrite();document.body.classList.toggle('read-only',readonly);
+  document.querySelectorAll('[data-action]').forEach(node=>{if(writeActions.has(node.dataset.action))node.toggleAttribute('data-permission-hidden',readonly);});
+  document.querySelectorAll('#import-file').forEach(node=>{node.disabled=readonly;node.closest('label')?.toggleAttribute('data-permission-hidden',readonly);});
+  document.querySelectorAll('form').forEach(form=>{if(writeForms.has(form.id))form.querySelectorAll('input,select,textarea,button[type="submit"]').forEach(node=>{if(readonly&&!node.disabled){node.disabled=true;node.dataset.roleDisabled='1';}else if(!readonly&&node.dataset.roleDisabled){node.disabled=false;delete node.dataset.roleDisabled;}});});
+}
+if(cloudMode){
+  document.addEventListener('click',event=>{const node=event.target.closest('[data-action]');if(!canWrite()&&node&&writeActions.has(node.dataset.action)){event.preventDefault();event.stopImmediatePropagation();toast('حسابك للقراءة فقط.');}},true);
+  document.addEventListener('submit',event=>{if(!canWrite()&&writeForms.has(event.target.id)){event.preventDefault();event.stopImmediatePropagation();toast('حسابك للقراءة فقط.');}},true);
+  document.addEventListener('change',event=>{if(!canWrite()&&event.target.id==='import-file'){event.preventDefault();event.stopImmediatePropagation();}},true);
+  new MutationObserver(applyPermissions).observe(document.body,{childList:true,subtree:true});
+}
 const additions=createEnhancements({getDB:()=>db,save,render,openModal,closeModal,toast,e,icon,date,num,download,testName,testsAvailable,details,ui,KEY,chartFor:(rows,testId)=>{const prior={test:ui.test,unit:ui.unit};try{ui.test=testId;ui.unit=rows[0]?.unit||'';return chartSVG(rows);}finally{Object.assign(ui,prior);}}});
 
 function toast(message) {
@@ -46,6 +62,7 @@ function toast(message) {
   clearTimeout(toastTimer); toastTimer=setTimeout(()=>$('#toast').classList.remove('toast-visible'),4500);
 }
 function save(next, {recover=false} = {}) {
+  if(!canWrite()){ui.storageError='حسابك للقراءة فقط؛ لا يمكن تعديل السجل.';toast(ui.storageError);return false;}
   try {
     if(recoveryRequired&&!recover)throw new Error('استعد نسخة سليمة من شاشة النسخ الاحتياطي قبل تعديل السجل. البيانات الأصلية لم تُمس.');
     if(localStorage.getItem(KEY)!==lastStored)throw new Error('السجل تغيّر في نافذة أخرى. أعد تحميل الصفحة قبل الحفظ لحماية آخر التعديلات.');
@@ -324,7 +341,7 @@ async function init() {
   }
   render();
   if(cloudMode&&!recoveryRequired){
-    cloud=createCloudSync({getDB:()=>db,apply:next=>{const serialized=JSON.stringify(next);localStorage.setItem(KEY,serialized);lastStored=serialized;db=next;},render,openModal,closeModal,toast,e,download});
+    cloud=createCloudSync({getDB:()=>db,apply:next=>{const serialized=JSON.stringify(next);localStorage.setItem(KEY,serialized);lastStored=serialized;db=next;},sessionChanged:applyPermissions,render,openModal,closeModal,toast,e,download});
     document.body.inert=true;
     try{await cloud.init();}finally{document.body.inert=false;}
   }

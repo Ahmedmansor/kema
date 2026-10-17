@@ -10,3 +10,7 @@ CREATE TABLE IF NOT EXISTS kema_history (
   data TEXT NOT NULL,
   updated_at TEXT
 );
+CREATE TABLE IF NOT EXISTS kema_roles (
+  email TEXT PRIMARY KEY COLLATE NOCASE,
+  role TEXT NOT NULL CHECK (role IN ('editor', 'viewer'))
+);

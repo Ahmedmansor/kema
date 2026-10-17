@@ -22,3 +22,7 @@
 .cloud-notice .btn{flex-shrink:0}
 #cloud-button[hidden]{display:none}
 @media(max-width:600px){.topbar-left{gap:8px;flex-wrap:wrap;justify-content:flex-end}#cloud-button{font-size:10px}.cloud-notice .btn{width:100%}.topbar-left .save-state{max-width:130px}}
+[data-permission-hidden]{display:none!important}
+.account-session{padding-bottom:20px;margin-bottom:20px;border-bottom:1px solid var(--border,#dce5e4)}
+.account-session .details-list dd{margin:0;overflow-wrap:anywhere}
+#cloud-role-form .details-list strong{overflow-wrap:anywhere}

@@ -34,12 +34,32 @@ export async function verifyAccess(token,env,fetcher=fetch){
     const {keys}=await response.json(),jwk=keys.find(k=>k.kid===header.kid&&k.kty==='RSA');if(!jwk)throw new Error();
     const key=await crypto.subtle.importKey('jwk',jwk,{name:'RSASSA-PKCS1-v1_5',hash:'SHA-256'},false,['verify']);
     if(!await crypto.subtle.verify('RSASSA-PKCS1-v1_5',key,decode(parts[2]),new TextEncoder().encode(parts.slice(0,2).join('.'))))throw new Error();
-    return claims.email;
+    return {email:claims.email.toLowerCase(),issuedAt:Number.isFinite(claims.iat)?new Date(claims.iat*1000).toISOString():null,expiresAt:new Date(claims.exp*1000).toISOString()};
   }catch{throw new HttpError(401,'انتهت جلسة الدخول. أعد فتح الموقع لتسجيل الدخول.');}
 }
 export function checkOrigin(request){
   const origin=request.headers.get('Origin');
   if(origin!==new URL(request.url).origin||request.headers.get('Sec-Fetch-Site')==='cross-site')throw new HttpError(403,'طلب الحفظ يجب أن يأتي من موقع Kema نفسه.');
+}
+async function sessionFor(identity,env){
+  const owner=identity.email===env.OWNER_EMAIL?.toLowerCase();
+  const row=owner?null:await env.DB.prepare('SELECT role FROM kema_roles WHERE email=?').bind(identity.email).first();
+  return {...identity,role:owner?'owner':row?.role==='editor'?'editor':'viewer'};
+}
+async function rolesAPI(request,env,session){
+  if(session.role!=='owner')throw new HttpError(403,'إدارة الصلاحيات متاحة لصاحب الحساب فقط.');
+  if(request.method==='GET'){
+    const rows=await env.DB.prepare('SELECT email,role FROM kema_roles ORDER BY email').all();
+    return json({roles:rows.results,owner:session.email});
+  }
+  if(request.method!=='PUT')return json({error:'طريقة غير مدعومة.'},405);
+  checkOrigin(request);
+  let input;try{input=JSON.parse(new TextDecoder().decode(await boundedBody(request,2048)));}catch(error){if(error.status)throw error;throw new HttpError(400,'بيانات الصلاحية غير صالحة.');}
+  const email=typeof input.email==='string'?input.email.trim().toLowerCase():'';
+  if(email.length>254||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||!['editor','viewer'].includes(input.role))throw new HttpError(400,'اكتب إيميلًا صحيحًا واختَر الصلاحية.');
+  if(email===env.OWNER_EMAIL?.toLowerCase())throw new HttpError(400,'صلاحية صاحب الحساب ثابتة.');
+  await env.DB.prepare('INSERT INTO kema_roles(email,role) VALUES(?,?) ON CONFLICT(email) DO UPDATE SET role=excluded.role').bind(email,input.role).run();
+  return json({ok:true});
 }
 async function stateAPI(request,env){
   if(request.method==='GET'){
@@ -87,7 +107,10 @@ export default {
       const url=new URL(request.url),path=url.pathname;
       if(path==='/api/config')return json({cloud:true,ready:Boolean(env.ACCESS_TEAM&&env.ACCESS_AUD),login:'/cdn-cgi/access/login'});
       if(path.startsWith('/api/')){
-        await verifyAccess(request.headers.get('Cf-Access-Jwt-Assertion'),env);
+        const session=await sessionFor(await verifyAccess(request.headers.get('Cf-Access-Jwt-Assertion'),env),env);
+        if(path==='/api/session'&&request.method==='GET')return json(session);
+        if(path==='/api/roles')return await rolesAPI(request,env,session);
+        if(!['GET','HEAD'].includes(request.method)&&session.role==='viewer')throw new HttpError(403,'حسابك للقراءة فقط؛ لا يمكن تعديل السجل أو رفع ملفات.');
         if(path==='/api/state')return await stateAPI(request,env);
         if(path.startsWith('/api/documents/'))return await documentAPI(request,env,path.slice('/api/documents/'.length));
         return json({error:'المسار غير موجود.'},404);
