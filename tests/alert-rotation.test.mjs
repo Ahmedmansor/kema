@@ -10,3 +10,9 @@ test('warnings rotate every 12 seconds with navigation, pause and hover/focus/hi
 test('reduced-motion users start with manual navigation and may explicitly enable rotation',()=>{
  const f=fixture(true);f.controller.mount();f.timers[0].fn();assert.equal(f.counter.textContent,'1 / 3');assert.equal(f.toggle['aria-pressed'],'false');f.click('data-alert-next');assert.equal(f.counter.textContent,'2 / 3');f.click('data-alert-play');f.timers[0].fn();assert.equal(f.counter.textContent,'3 / 3');f.controller.destroy();
 });
+
+test('card transitions animate only the new slide and cancel interrupted movement',()=>{
+ const f=fixture(),animations=[],cancelled=[];for(const slide of f.slides)slide.animate=(frames,options)=>{animations.push({slide,frames,options});const id=animations.length;return {cancel:()=>cancelled.push(id)};};
+ f.controller.mount();assert.equal(animations.length,0);f.click('data-alert-next');assert.equal(animations[0].slide,f.slides[1]);assert.equal(animations[0].options.duration,380);assert.equal(f.slides[1].hidden,false);f.click('data-alert-next');assert.deepEqual(cancelled,[1]);assert.equal(animations[1].slide,f.slides[2]);assert.equal(f.slides[1].hidden,true);f.controller.destroy();assert.deepEqual(cancelled,[1,2]);
+ const reduced=fixture(true);let motion=0;for(const slide of reduced.slides)slide.animate=()=>motion++;reduced.controller.mount();reduced.click('data-alert-next');assert.equal(motion,0);reduced.controller.destroy();
+});
