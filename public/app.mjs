@@ -10,6 +10,9 @@ import { createCloudSync } from './cloud.mjs';
 import { prepareCloudAccount } from './profiles.mjs';
 import { configureDocumentScope } from './documents.mjs';
 
+const guestMode=Boolean(document.querySelector('meta[name="kema-guest"]'));
+const guestModule=guestMode?await import('./guest-session.mjs'):null;
+let guest=null;
 const cloudMode=Boolean(document.querySelector('meta[name="kema-cloud"]'));
 const account=cloudMode?await prepareCloudAccount().catch(error=>({error:error.message})):null;
 const KEY = cloudMode?(account.scope?account.scope+'.health':'kema.cloud.locked'):'kema.health.v1';
@@ -48,12 +51,14 @@ let db = {schemaVersion:SCHEMA_VERSION, profile:{name:''}, results:[], medicatio
 const ui = { test:'hba1c', group:'sugar', unit:'', range:'all', point:null, archive:{q:'',group:'all',state:'all',from:'',to:'',page:1}, storageError:'', pendingImport:null };
 let toastTimer, returnFocus, lastStored = null, recoveryRequired = false, cloud=null;
 const navItems = [['overview','grid','نظرة عامة'],['trends','chart','متابعة التحاليل'],['archive','file','سجل النتائج'],['medications','pill','الأدوية'],['clinical','file','الزيارات والروشتات']];
-const route = () => navItems.some(n=>n[0]===location.hash.slice(1)) ? location.hash.slice(1) : 'overview';
+const route = () => {const current=guestMode?guest?.route():location.hash.slice(1);return navItems.some(n=>n[0]===current)?current:'overview';};
+const routeHref=screen=>guestMode?guest.href(screen):'#'+screen;
 const writeActions=new Set(['profile','add-result','edit-result','delete-result','add-med','edit-med','delete-med','confirm-delete','confirm-import','new-report','add-report-row','remove-report-row','attach-document','restore-item','undo-delete','import-enhanced']);
 writeActions.add('clinical-write');
 const writeForms=new Set(['result-form','med-form','profile-form','report-form','attach-form','review-form','clinical-form','clinical-track']);
-const canWrite=()=>!cloudMode||Boolean(cloud?.canEdit());
+const canWrite=()=>!guestMode&&(!cloudMode||Boolean(cloud?.canEdit()));
 function applyPermissions(){
+  if(guestMode){document.body.classList.add('read-only');document.querySelectorAll('[data-action]').forEach(node=>{if(!guestModule.guestActions.has(node.dataset.action))node.hidden=true;});document.querySelectorAll('[data-cloud-action]').forEach(node=>node.hidden=true);return;}
   if(!cloudMode)return;
   const readonly=!canWrite();document.body.classList.toggle('read-only',readonly);
   document.querySelectorAll('[data-action]').forEach(node=>{if(writeActions.has(node.dataset.action))node.toggleAttribute('data-permission-hidden',readonly);});
@@ -66,10 +71,16 @@ if(cloudMode){
   document.addEventListener('change',event=>{if(!canWrite()&&event.target.id==='import-file'){event.preventDefault();event.stopImmediatePropagation();}},true);
   new MutationObserver(applyPermissions).observe(document.body,{childList:true,subtree:true});
 }
+if(guestMode){
+  guest=guestModule.createGuestSession({apply:next=>db=next,render,lock:message=>{db={schemaVersion:1,profile:{name:''},results:[],medications:[]};$('#main').textContent=message;$('#navigation').replaceChildren();$('#modal').close();$('#modal-content').replaceChildren();$('#print-content')?.remove();$('#print-controls')?.remove();document.body.classList.remove('print-preview');},status:text=>$('#save-state').textContent=text});
+  document.addEventListener('click',event=>{const action=event.target.closest('[data-action]'),clinicalAction=event.target.closest('[data-clinical]');if(!guest.valid()||(action&&!guestModule.guestActions.has(action.dataset.action))||(clinicalAction&&clinicalAction.dataset.clinical!=='filter')||event.target.closest('[data-cloud-action]')){event.preventDefault();event.stopImmediatePropagation();return;}const link=event.target.closest('a[href^="#"]');if(link&&navItems.some(n=>link.getAttribute('href')==='#'+n[0])){event.preventDefault();location.hash=guest.href(link.getAttribute('href').slice(1));}},true);
+  document.addEventListener('submit',event=>{if(!guest.valid()||event.target.id!=='print-options'){event.preventDefault();event.stopImmediatePropagation();}},true);
+  document.addEventListener('change',event=>{if(!guest.valid()){event.preventDefault();event.stopImmediatePropagation();}},true);
+}
 const timeline=createTimeline({getDB:()=>db,details,openModal,e,date});
 const chartPrescriptions=createChartPrescriptions({getDB:()=>db,select:selection=>timeline.setSelection(selection),update:updateChart});
-const clinical=createClinical({getDB:()=>db,save,render,openModal,closeModal,toast,e,date,canWrite});
-const additions=createEnhancements({getDB:()=>db,save,render,openModal,closeModal,toast,e,icon,date,num,download,testName,testsAvailable,details,ui,KEY,chartFor:(rows,testId)=>{const prior={test:ui.test,unit:ui.unit};try{ui.test=testId;ui.unit=rows[0]?.unit||'';return chartSVG(rows);}finally{Object.assign(ui,prior);}}});
+const clinical=createClinical({guest:guestMode,getDB:()=>db,save,render,openModal,closeModal,toast,e,date,canWrite});
+const additions=createEnhancements({guest:guestMode,getDB:()=>db,save,render,openModal,closeModal,toast,e,icon,date,num,download,testName,testsAvailable,details,ui,KEY,chartFor:(rows,testId)=>{const prior={test:ui.test,unit:ui.unit};try{ui.test=testId;ui.unit=rows[0]?.unit||'';return chartSVG(rows);}finally{Object.assign(ui,prior);}}});
 
 function toast(message) {
   $('#toast').textContent=message; $('#toast').classList.add('toast-visible');
@@ -157,7 +168,7 @@ function medStrip(rows) {
 }
 function renderOverview() {
   const dates=[...new Set(db.results.map(r=>r.date))].sort();
-  return `${heading('صورة أوضح، لمتابعة أهدأ', 'أهلًا بيك في سجلّك الصحي. كل تحاليلك، في مكان واحد.',backupButton+addButton)}${clinical.renderHomeAlerts()}<section class="welcome"><div class="welcome-text"><h2 class="welcome-title">${icon('heart')} ${db.profile.name?`سجل ${e(db.profile.name)}`:'رحلة صحتك تبدأ من هنا'}</h2><p>${dates.length?`متابعة متصلة من ${date(dates[0])} إلى ${date(dates.at(-1))}. ارجع لأي نتيجة، وشوف الصورة على مدار الوقت.`:'أضف أول نتيجة أو استورد ملفك لتبدأ متابعة تحاليلك.'}</p></div><div class="welcome-stats"><div class="welcome-stat"><strong>${db.results.length}</strong><small>نتيجة مسجّلة</small></div><div class="welcome-stat"><strong>${dates.length}</strong><small>تاريخ تحليل</small></div><div class="welcome-stat"><strong>${new Set(db.results.map(r=>r.testId)).size}</strong><small>نوع تحليل</small></div></div></section><div class="section-label"><h2>آخر النتائج، بنظرة واحدة</h2><span>مقارنة بآخر قياس لنفس الوحدة</span></div><div class="stats-grid">${['glucose_fasting','glucose_2hr','hba1c'].map(statCard).join('')}</div>${Object.entries(GROUPS).filter(([id])=>id!=='all'&&id!=='sugar'&&db.results.some(r=>r.group===id)).map(([id,label])=>`<h3 class="lipid-section-title">${e(label)}</h3><div class="stats-grid">${testsAvailable().filter(t=>t.group===id&&(id==='lipids'||db.results.some(r=>r.testId===t.id))).map(t=>statCard(t.id)).join('')}</div>`).join('')}<div class="content-grid"><div>${chartPanel()}${recentPanel()}</div>${medicationsAside()}</div>`;
+  return `${heading('صورة أوضح، لمتابعة أهدأ', 'أهلًا بيك في سجلّك الصحي. كل تحاليلك، في مكان واحد.',backupButton+addButton)}${clinical.renderHomeAlerts()}${guestMode&&db.sharedAlerts?.length?`<section class="home-alerts"><h2>تنبيه طبي مهم</h2>${db.sharedAlerts.map(n=>`<article><h3>${e(n.text)}</h3><p>${e(n.doctor)} · ${date(n.date)}</p></article>`).join('')}</section>`:''}<section class="welcome"><div class="welcome-text"><h2 class="welcome-title">${icon('heart')} ${db.profile.name?`سجل ${e(db.profile.name)}`:'رحلة صحتك تبدأ من هنا'}</h2><p>${dates.length?`متابعة متصلة من ${date(dates[0])} إلى ${date(dates.at(-1))}. ارجع لأي نتيجة، وشوف الصورة على مدار الوقت.`:'أضف أول نتيجة أو استورد ملفك لتبدأ متابعة تحاليلك.'}</p></div><div class="welcome-stats"><div class="welcome-stat"><strong>${db.results.length}</strong><small>نتيجة مسجّلة</small></div><div class="welcome-stat"><strong>${dates.length}</strong><small>تاريخ تحليل</small></div><div class="welcome-stat"><strong>${new Set(db.results.map(r=>r.testId)).size}</strong><small>نوع تحليل</small></div></div></section><div class="section-label"><h2>آخر النتائج، بنظرة واحدة</h2><span>مقارنة بآخر قياس لنفس الوحدة</span></div><div class="stats-grid">${['glucose_fasting','glucose_2hr','hba1c'].map(statCard).join('')}</div>${Object.entries(GROUPS).filter(([id])=>id!=='all'&&id!=='sugar'&&db.results.some(r=>r.group===id)).map(([id,label])=>`<h3 class="lipid-section-title">${e(label)}</h3><div class="stats-grid">${testsAvailable().filter(t=>t.group===id&&(id==='lipids'||db.results.some(r=>r.testId===t.id))).map(t=>statCard(t.id)).join('')}</div>`).join('')}<div class="content-grid"><div>${chartPanel()}${recentPanel()}</div>${medicationsAside()}</div>`;
 }
 function recentPanel() {
   const dates=[...new Set(db.results.map(r=>r.date))].sort().reverse().slice(0,4);
@@ -189,7 +200,7 @@ function renderMedications() {
 }
 function render() {
   const current=route();
-  $('#navigation').innerHTML=navItems.map(([id,ic,label])=>`<a class="nav-link ${current===id?'active':''}" href="#${id}" ${current===id?'aria-current="page"':''}>${icon(ic)}<span>${label}</span></a>`).join('');
+  $('#navigation').innerHTML=navItems.map(([id,ic,label])=>`<a class="nav-link ${current===id?'active':''}" href="${routeHref(id)}" ${current===id?'aria-current="page"':''}>${icon(ic)}<span>${label}</span></a>`).join('');
   $('#breadcrumb').textContent=navItems.find(n=>n[0]===current)[2];
   document.title=`${$('#breadcrumb').textContent} — Kema · Blood Tests`;
   $('.avatar').textContent=db.profile.name?db.profile.name[0]:'K';
@@ -197,16 +208,18 @@ function render() {
   $('#main').innerHTML=`${ui.storageError?`<div class="storage-warning" role="alert">${e(ui.storageError)}</div>`:''}${screen[current]()}`;
   additions.decorate(current);
   if(cloudMode){const card=$('.info-card');if(card)card.innerHTML=`${icon('shield')}<h3>سجلك، معاك على أجهزتك</h3><p>نتائجك وأدويتك تتزامن مع حسابك الخاص. راجع مؤشر المزامنة قبل الانتقال لجهاز تاني، واحتفظ بنسخة احتياطية.</p><button class="text-button" data-cloud-action="panel">حسابي والمزامنة ${icon('arrow')}</button>`;}
-  cloud?.decorate();
+  if(guestMode){const card=$('.info-card');if(card)card.innerHTML='<h3>ضيف · قراءة فقط</h3><p>تصفح نفس السجل والرسومات والفلاتر. التعديل والإضافة غير متاحين من رابط الطبيب.</p>';$('.local-indicator').textContent='ضيف · قراءة فقط';$('.workspace-label').textContent='السجل المشترك';}
+  cloud?.decorate();applyPermissions();
 }
 function updateChart() {
   const panel=$('#chart-panel');if(panel)panel.outerHTML=chartPanel();
   if($('#chart-table'))$('#chart-table').innerHTML=chartTable();
 }
-function updateArchive() { if($('#records')) $('#records').innerHTML=archiveRows(); }
+function updateArchive() { if($('#records')) $('#records').innerHTML=archiveRows();applyPermissions(); }
 function openModal(title,body,footer='') {
   const dialog=$('#modal');if(!dialog.open)returnFocus=document.activeElement;
   $('#modal-content').innerHTML=`<div class="modal-head"><h2 id="modal-title">${title}</h2><button class="icon-btn" data-action="close-modal" aria-label="إغلاق">${icon('close')}</button></div>${body}${footer}`;
+  applyPermissions();
   if(!dialog.open)dialog.showModal();
 }
 function closeModal() { $('#modal').close(); }
@@ -250,7 +263,7 @@ function confirmDelete(id,med=false) {
 }
 function navigateTrend(test) {
   ui.test=test;ui.group=db.results.find(r=>r.testId===test)?.group||meta(test).group;ui.unit='';ui.range='all';ui.point=null;
-  if(route()!=='trends') location.hash='trends';else {render();window.scrollTo({top:0});}
+  if(route()!=='trends') location.hash=routeHref('trends');else {render();window.scrollTo({top:0});}
 }
 document.addEventListener('click',event=>{
   const button=event.target.closest('[data-action]');if(!button)return;
@@ -269,8 +282,8 @@ document.addEventListener('click',event=>{
   if(action==='trend')return navigateTrend(button.dataset.test);
   if(action==='chart-group'){ui.group=button.dataset.group;ui.point=null;updateChart();return;}
   if(action==='chart-point'){selectPoint(id);return;}
-  if(action==='date-archive'){ui.archive={q:'',group:'all',state:'all',from:button.dataset.date,to:button.dataset.date,page:1};location.hash='archive';return;}
-  if(action==='test-archive'){ui.archive={q:ui.test,group:'all',state:'all',from:'',to:'',page:1};location.hash='archive';return;}
+  if(action==='date-archive'){ui.archive={q:'',group:'all',state:'all',from:button.dataset.date,to:button.dataset.date,page:1};location.hash=routeHref('archive');return;}
+  if(action==='test-archive'){ui.archive={q:ui.test,group:'all',state:'all',from:'',to:'',page:1};location.hash=routeHref('archive');return;}
   if(action==='prev-page'||action==='next-page'){ui.archive.page+=action==='next-page'?1:-1;updateArchive();return;}
   if(action==='clear-filters'){ui.archive={q:'',group:'all',state:'all',from:'',to:'',page:1};render();return;}
   if(action==='export-json'){download(JSON.stringify({...db,exportedAt:new Date().toISOString()},null,2),`kema-backup-${new Date().toISOString().slice(0,10)}.json`,'application/json');return;}
@@ -340,12 +353,14 @@ window.addEventListener('hashchange',()=>{render();window.scrollTo({top:0});});
 let resizeTimer;
 window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(updateChart,120);});
 window.addEventListener('storage',event=>{
+  if(guestMode)return;
   if(event.key===KEY){
     if($('#modal').open){toast('تم تغيير السجل في نافذة أخرى. أعد تحميل الصفحة قبل حفظ تعديلاتك.');return;}
     try {if(event.newValue){db=validateBackup(JSON.parse(event.newValue));lastStored=event.newValue;render();toast('تم تحديث السجل من نافذة أخرى.');}else{toast('تم مسح التخزين في نافذة أخرى. نزّل نسخة احتياطية قبل إعادة التحميل.');}}catch{toast('تعذّر قراءة تحديث النافذة الأخرى.');}
   }
 });
 async function init() {
+  if(guestMode){await guest.init();return;}
   if(cloudMode&&account.error){ui.storageError=account.error;render();return;}
   let raw;
   try {raw=localStorage.getItem(KEY);lastStored=raw;}catch{ui.storageError='المتصفح يمنع التخزين المحلي. لن يتم اعتماد تغييرات قبل تفعيل الحفظ.';}

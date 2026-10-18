@@ -21,6 +21,7 @@ export function createEnhancements(ctx){
   $('#modal').addEventListener('close',()=>{$('#modal').classList.remove('wide-modal','review-modal');resetPDF();importData=null;});
   function wide(){ $('#modal').classList.add('wide-modal'); }
   function decorate(route){
+    if(ctx.guest){$('.page-heading')?.insertAdjacentHTML('afterend',`<div class="feature-toolbar"><button class="btn btn-small" data-action="compare">${icon('chart')} مقارنة التحاليل</button><button class="btn btn-small" data-action="print-summary">${icon('file')} تقرير PDF</button></div>`);return;}
     const db=ctx.getDB(),trash=db.trash||[],info=backupInfo();
     if(route!=='medications')$('.heading-actions')?.insertAdjacentHTML('afterbegin',`<button class="btn btn-primary" data-action="new-report">${icon('plus')} إضافة تقرير كامل</button>`);
     const single=$('.heading-actions [data-action="add-result"]');if(single){single.classList.remove('btn-primary');single.textContent='نتيجة واحدة';}
@@ -138,7 +139,7 @@ export function createEnhancements(ctx){
   }
   function detailWithAttachment(id){
     const r=ctx.getDB().results.find(r=>r.id===id);if(!r)return;
-    ctx.details(id);
+    ctx.details(id);if(ctx.guest)return;
     const p=$('.modal-body>p');if(p)p.textContent=r.documentId?'الملف الأصلي مرتبط بهذه النتيجة ومحفوظ في المتصفح.':'اسم المصدر محفوظ؛ تقدر ترفق الـPDF الأصلي الآن.';
     $('.modal-footer')?.insertAdjacentHTML('afterbegin',r.documentId?`<button class="btn btn-soft" data-action="review-document" data-id="${e(r.documentId)}">${icon('file')} الأصل والمراجعة</button>`:`<button class="btn btn-soft" data-action="attach-document" data-id="${e(id)}">${icon('upload')} إرفاق PDF</button>`);
   }
