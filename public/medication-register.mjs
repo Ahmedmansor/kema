@@ -6,7 +6,7 @@ export function prescriptionRows(db){const c=activeClinical(db.clinical);return 
 export function medicationSummary(db){
  const rows=prescriptionRows(db),periods=db.medications||[];
  if(!rows.length&&!periods.length)return '<div class="empty-med"><strong>لا توجد أدوية مسجلة بعد</strong><p>أضف روشتة أو سجّل فترة تناول فعلية.</p><a class="text-button" href="#clinical">إضافة روشتة</a></div>';
- return `<p><strong>${rows.length} بنود دواء من الروشتات</strong> · ${periods.length} فترات تناول مؤكدة</p><div class="medication-summary">${rows.slice(0,3).map(p=>`<article><strong dir="auto">${e(p.name)}</strong><small>${e(p.doctor.name)} · ${e(p.visit.date)||'تاريخ الكتابة غير معروف'}</small></article>`).join('')}${!rows.length?periods.slice(-3).map(m=>`<article><strong>${e(m.name)}</strong><small>فترة تناول مسجلة · ${e(m.start)}</small></article>`).join(''):''}</div><a class="text-button" href="#medications">عرض جدول الأدوية</a>`;
+ return `<p><strong>${rows.length} بنود دواء من الروشتات</strong> · ${periods.length} فترات تناول فعلية مسجّلة</p><p class="register-help">الفترة هي تاريخ بدء التناول وتوقفه، أو أنه مستمر فعلًا. عدد مرات الجرعة ومواعيدها محفوظان في تعليمات الروشتة.</p><div class="medication-summary">${rows.slice(0,3).map(p=>`<article><strong dir="auto">${e(p.name)}</strong><small>${e(p.doctor.name)} · ${e(p.visit.date)||'تاريخ الكتابة غير معروف'}</small></article>`).join('')}${!rows.length?periods.slice(-3).map(m=>`<article><strong>${e(m.name)}</strong><small>فترة تناول مسجلة · ${e(m.start)}</small></article>`).join(''):''}</div><a class="text-button" href="#medications">عرض جدول الأدوية</a>`;
 }
 export function renderMedicationRegister(db,{canWrite=false}={}){
  const rows=prescriptionRows(db);
