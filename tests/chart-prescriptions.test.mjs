@@ -1,3 +1,4 @@
+import {chartRanges,rangeAt,rangeBackground} from '../public/chart-ranges.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
@@ -26,9 +27,9 @@ test('integrated controls default off, preserve filters and drive one shared cha
 test('the original test plot and optional prescription curves share date coordinates without a duplicate section',async()=>{
  const source=await readFile(new URL('../public/app.mjs',import.meta.url),'utf8');assert.ok(!source.includes('${timeline.render()}'));
  const body=source.split('function chartSVG(rows,rx) {')[1].split('\nfunction pointDetails')[0];
- const render=new Function('window','chartPrescriptions','timeDomain','db','ui','meta','e','testName','num','monthFmt','date','status','prescriptionCurve','CURVE_HEIGHT',`return function(rows,rx){${body}`);
+ const render=new Function('window','chartPrescriptions','timeDomain','db','ui','meta','e','testName','num','monthFmt','date','status','prescriptionCurve','CURVE_HEIGHT','chartRanges','rangeAt','rangeBackground',`return function(rows,rx){${body}`);
  const rx={prescriptions:[{...db.clinical.prescriptions[0],visit:db.clinical.visits[0],doctor:db.clinical.doctors[0]}],start:'2026-05-01',end:'2026-10-15'};
- const toggle={enabled:true};const svg=render({innerWidth:390},toggle,timeDomain,db,{test:'triglycerides'},meta,String,()=> 'Triglycerides',String,new Intl.DateTimeFormat('en'),String,status,prescriptionCurve,CURVE_HEIGHT);
+ const toggle={enabled:true};const svg=render({innerWidth:390},toggle,timeDomain,db,{test:'triglycerides'},meta,String,()=> 'Triglycerides',String,new Intl.DateTimeFormat('en'),String,status,prescriptionCurve,CURVE_HEIGHT,chartRanges,rangeAt,rangeBackground);
  const combined=svg(rows,rx);assert.match(combined,/data-timeline-rx="p"/);assert.match(combined,/data-action="chart-point"/);
  const domain=timeDomain([...rows,{date:rx.start},{date:rx.end}]),x=d=>90+(Date.parse(d+'T00:00:00Z')-domain.min)/(domain.max-domain.min)*885;
  assert.ok(combined.includes(`cx="${x(rows[0].date)}"`));assert.ok(combined.includes(`cx="${x(rx.start)}"`));assert.ok(!combined.includes('NaN'));assert.match(combined,/viewBox="0 0 1000 760"/);

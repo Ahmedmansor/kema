@@ -19,7 +19,7 @@
     <div class="sidebar-bottom"><div class="local-indicator"><span></span> حفظ محلي على جهازك</div><p>كل نتيجة في مكانها.<br>وكل خطوة أوضح من قبل.</p><button class="sidebar-backup" data-action="backup">النسخ الاحتياطي <span aria-hidden="true">↗</span></button></div>
   </aside>
   <div class="app-shell">
-    <header class="topbar"><div class="breadcrumb">مساحتي <span>/</span> <strong id="breadcrumb">نظرة عامة</strong></div><div class="topbar-left"><button id="cloud-button" class="text-button" data-cloud-action="panel" hidden>حسابي والمزامنة</button><span class="save-state" id="save-state">محفوظ على هذا المتصفح</span><button class="avatar" data-action="profile" aria-label="تعديل اسم صاحب السجل">K</button></div></header>
+    <header class="topbar"><div class="breadcrumb">مساحتي <span>/</span> <strong id="breadcrumb">نظرة عامة</strong></div><div class="topbar-left"><button class="btn theme-toggle" type="button" data-theme-toggle aria-label="تبديل ألوان الموقع">الوضع الداكن</button><button id="cloud-button" class="text-button" data-cloud-action="panel" hidden>حسابي والمزامنة</button><span class="save-state" id="save-state">محفوظ على هذا المتصفح</span><button class="avatar" data-action="profile" aria-label="تعديل اسم صاحب السجل">K</button></div></header>
     <main id="main" tabindex="-1"><div class="loading">جارٍ تجهيز سجلّك…</div></main>
     <footer class="footer"><span>Kema <span class="footer-dot">·</span> Blood Tests</span><span>المرجع المعروض من بيانات التقرير؛ الهدف العلاجي يحدده الطبيب.</span></footer>
   </div>
@@ -27,5 +27,6 @@
   <div id="toast" role="status" aria-live="polite"></div>
   <link rel="stylesheet" href="./report.css"><link rel="stylesheet" href="./clinical.css">
   <script type="module" src="./app.mjs"></script>
+<link rel="stylesheet" href="./themes.css"><script type="module" src="./theme.mjs"></script>
 </body>
 </html>

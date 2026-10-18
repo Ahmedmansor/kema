@@ -22,7 +22,7 @@ export default {async fetch(request,env){
       }
       return json({snapshot,live,expiresAt:new Date(row.expires_at*1000).toISOString()});
     }
-    if(!['GET','HEAD'].includes(request.method)||!['/','/index.html','/app.mjs','/guest-session.mjs','/enhancements.mjs','/enhancements.css','/chart-prescriptions.mjs','/documents.mjs','/pdf-viewer.mjs','/cloud.mjs','/profiles.mjs','/mark.svg','/styles.css','/clinical.css','/clinical.mjs','/clinical-presentation.mjs','/medication-register.mjs','/timeline.mjs','/prescription-curve.mjs','/report.mjs','/report.css','/core.mjs','/clinical-core.mjs'].includes(path))return json({error:'المسار غير موجود.'},404);
+    if(!['GET','HEAD'].includes(request.method)||!['/','/index.html','/app.mjs','/chart-ranges.mjs','/theme.mjs','/themes.css','/guest-session.mjs','/enhancements.mjs','/enhancements.css','/chart-prescriptions.mjs','/documents.mjs','/pdf-viewer.mjs','/cloud.mjs','/profiles.mjs','/mark.svg','/styles.css','/clinical.css','/clinical.mjs','/clinical-presentation.mjs','/medication-register.mjs','/timeline.mjs','/prescription-curve.mjs','/report.mjs','/report.css','/core.mjs','/clinical-core.mjs'].includes(path))return json({error:'المسار غير موجود.'},404);
     const response=await env.ASSETS.fetch(request);const h=new Headers(response.headers);for(const [key,value]of Object.entries(headers))h.set(key,value);return new Response(response.body,{status:response.status,headers:h});
   }catch{return json({error:'تعذّر فتح التقرير الآن.'},500);}
 }};
