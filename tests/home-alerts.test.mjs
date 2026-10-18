@@ -4,7 +4,8 @@ const data=()=>({clinical:{version:2,doctors:[{id:'d',name:'Doctor',specialty:'E
 test('all active warnings and explicit precautions appear, with priority sorting and deletion respected',()=>{
  const db=data();assert.deepEqual(homeAlertRows(db).map(n=>n.id),['priority','other','sleep','unknown']);db.clinical.events[0].pinned=false;assert.equal(homeAlertRows(db).length,4);db.clinical.visits[0].deletedAt='2026-01-01T00:00:00Z';assert.deepEqual(homeAlertRows(db).map(n=>n.id),['unknown']);
 });
-test('home warnings form one accessible scrollable list with all entries and escaped content',t=>{
+test('pinned warnings stay separate from a rotating list with escaped content and manual controls',t=>{
  const prior=globalThis.document;globalThis.document={addEventListener(){}};t.after(()=>globalThis.document=prior);
- const e=v=>String(v??'').replaceAll('<','&lt;').replaceAll('>','&gt;');const ui=createClinical({getDB:data,canWrite:()=>false,e,date:d=>d});const html=ui.renderHomeAlerts();assert.match(html,/home-alert-scroll/);assert.match(html,/tabindex="0" role="region"/);assert.equal((html.match(/<li>/g)||[]).length,4);assert.match(html,/Other &lt;warning&gt;/);assert.match(html,/ممنوع النوم/);assert.match(html,/التاريخ غير معروف/);assert.doesNotMatch(html,/Deleted warning|Ordinary note|data-clinical="pin-event"/);
+ const e=v=>String(v??'').replaceAll('<','&lt;').replaceAll('>','&gt;');const ui=createClinical({getDB:data,canWrite:()=>false,e,date:d=>d});const html=ui.renderHomeAlerts();assert.match(html,/data-alert-fixed="priority"/);assert.match(html,/data-alert-carousel role="region"/);assert.equal((html.match(/<li data-alert-slide/g)||[]).length,3);assert.match(html,/data-alert-next/);assert.match(html,/data-alert-play/);assert.match(html,/Other &lt;warning&gt;/);assert.match(html,/ممنوع النوم/);assert.match(html,/التاريخ غير معروف/);assert.doesNotMatch(html,/Deleted warning|Ordinary note|data-clinical="pin-event"/);
+ assert.ok(html.indexOf('Gliptins warning')<html.indexOf('data-alert-carousel'));
 });

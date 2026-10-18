@@ -210,7 +210,7 @@ function render() {
   additions.decorate(current);
   if(cloudMode){const card=$('.info-card');if(card)card.innerHTML=`${icon('shield')}<h3>سجلك، معاك على أجهزتك</h3><p>نتائجك وأدويتك تتزامن مع حسابك الخاص. راجع مؤشر المزامنة قبل الانتقال لجهاز تاني، واحتفظ بنسخة احتياطية.</p><button class="text-button" data-cloud-action="panel">حسابي والمزامنة ${icon('arrow')}</button>`;}
   if(guestMode){const card=$('.info-card');if(card)card.innerHTML='<h3>ضيف · قراءة فقط</h3><p>تصفح نفس السجل والرسومات والفلاتر. التعديل والإضافة غير متاحين من رابط الطبيب.</p>';$('.local-indicator').textContent='ضيف · قراءة فقط';$('.workspace-label').textContent='السجل المشترك';}
-  cloud?.decorate();applyPermissions();
+  cloud?.decorate();applyPermissions();clinical.mountHomeAlerts();
 }
 function updateChart() {
   const panel=$('#chart-panel');if(panel)panel.outerHTML=chartPanel();
