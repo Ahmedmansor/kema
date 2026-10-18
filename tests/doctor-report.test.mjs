@@ -12,7 +12,7 @@ test('full guest links read current data only for their bound profile, with hist
  const db=new DatabaseSync(':memory:');t.after(()=>db.close());for(const f of ['profiles-schema.sql','shares-schema.sql'])db.exec(await readFile(new URL('../cloudflare/'+f,import.meta.url),'utf8'));
  const clinical={version:2,doctors:[{id:'d',name:'Doctor',specialty:'Neuro'}],visits:[{id:'v',doctorId:'d',date:'',notes:'Visit note',source:'PRIVATE EXTRACTION'}],prescriptions:[{id:'rx',visitId:'v',name:'Medicine',instructions:'Instructions',notes:'Medicine note'}],events:[{id:'e',visitId:'v',kind:'warning',text:'Warning',pinned:true}]};
  for(const id of ['p','other']){db.prepare('INSERT INTO kema_profiles(id,name,owner_email,created_at) VALUES(?,?,?,?)').run(id,id,id+'@test','now');db.prepare('INSERT INTO kema_profile_state(profile_id,data) VALUES(?,?)').run(id,JSON.stringify(id==='p'?{...data,clinical}:{...data,profile:{name:'OTHER PATIENT'}}));}
- const env={SHARE_ORIGIN:'https://share.test',DB:{prepare(sql){return {args:[],bind(...args){this.args=args;return this;},async first(){return db.prepare(sql).get(...this.args);},async run(){return {meta:{changes:Number(db.prepare(sql).run(...this.args).changes)}};}};}}};
+ const env={SHARE_ORIGIN:'https://share.test',SHARE_LINK_KEY:'test-only-key-not-for-production-123456789',DB:{prepare(sql){return {args:[],bind(...args){this.args=args;return this;},async first(){return db.prepare(sql).get(...this.args);},async run(){return {meta:{changes:Number(db.prepare(sql).run(...this.args).changes)}};}};}}};
  const api=createDoctorShares({json:(d,s=200)=>Response.json(d,{status:s}),checkOrigin:()=>{},boundedBody:async r=>new Uint8Array(await r.arrayBuffer())});
  const input={hours:24,mode:'full',consent:true,profileId:'other',from:'2099-01-01'};
  await assert.rejects(()=>api(new Request('https://main.test/api/shares',{method:'POST',body:JSON.stringify(input)}),env,{role:'editor',profileId:'p'}),{status:403});
@@ -32,16 +32,23 @@ test('report includes latest visit and all series, escapes labels and strips pri
 test('doctor links require owner consent, store hashes, freeze snapshots, expire and revoke without exposing other records',async t=>{
  const db=new DatabaseSync(':memory:');t.after(()=>db.close());for(const f of ['profiles-schema.sql','shares-schema.sql'])db.exec(await readFile(new URL('../cloudflare/'+f,import.meta.url),'utf8'));
  db.prepare('INSERT INTO kema_profiles(id,name,owner_email,created_at) VALUES(?,?,?,?)').run('p','Patient','owner@test','now');db.prepare('INSERT INTO kema_profile_state(profile_id,data) VALUES(?,?)').run('p',JSON.stringify(data));
- const env={SHARE_ORIGIN:'https://share.test',DB:{prepare(sql){return {args:[],bind(...args){this.args=args;return this;},async first(){return db.prepare(sql).get(...this.args);},async all(){return {results:db.prepare(sql).all(...this.args)};},async run(){return {meta:{changes:Number(db.prepare(sql).run(...this.args).changes)}};}};}}};
+ const env={SHARE_ORIGIN:'https://share.test',SHARE_LINK_KEY:'test-only-key-not-for-production-123456789',DB:{prepare(sql){return {args:[],bind(...args){this.args=args;return this;},async first(){return db.prepare(sql).get(...this.args);},async all(){return {results:db.prepare(sql).all(...this.args)};},async run(){return {meta:{changes:Number(db.prepare(sql).run(...this.args).changes)}};}};}}};
  const api=createDoctorShares({json:(d,s=200)=>Response.json(d,{status:s}),checkOrigin:()=>{},boundedBody:async r=>new Uint8Array(await r.arrayBuffer())});
  const request=body=>new Request('https://main.test/api/shares',{method:'POST',body:JSON.stringify(body)}),input={hours:24,mode:'all',consent:true};
  await assert.rejects(()=>api(request(input),env,{role:'viewer',profileId:'p'}),{status:403});await assert.rejects(()=>api(request({...input,consent:false}),env,{role:'owner',profileId:'p'}),{status:400});
  const created=await (await api(request(input),env,{role:'owner',profileId:'p'})).json(),token=created.url.split('#')[1];assert.match(token,/^[a-f0-9]{64}$/);assert.notEqual(db.prepare('SELECT token_hash FROM kema_doctor_shares').get().token_hash,token);
+ const list=(role='owner',profileId='p',config=env)=>api(new Request('https://main.test/api/shares'),config,{role,profileId});
+ const before=db.prepare('SELECT * FROM kema_doctor_shares').get();
+ for(let i=0;i<2;i++){const listed=await (await list()).json();assert.equal(listed.shares[0].url,created.url);assert.ok(!('token_hash' in listed.shares[0]));assert.ok(!('snapshot' in listed.shares[0]));}
+ assert.deepEqual(db.prepare('SELECT * FROM kema_doctor_shares').get(),before);
+ await assert.rejects(()=>list('viewer'),{status:403});await assert.rejects(()=>list('editor'),{status:403});assert.equal((await (await list('owner','other')).json()).shares.length,0);
+ db.prepare('UPDATE kema_doctor_shares SET token_hash=?').run('0'.repeat(64));const legacy=(await (await list()).json()).shares[0];assert.equal(legacy.linkUnavailable,'legacy');assert.ok(!legacy.url);db.prepare('UPDATE kema_doctor_shares SET token_hash=?').run(before.token_hash);
+ assert.ok(!(await (await list('owner','p',{...env,SHARE_LINK_KEY:undefined})).json()).shares[0].url);
  db.prepare('UPDATE kema_profile_state SET data=?').run(JSON.stringify({...data,results:[]}));
  const view=(tok=token,origin='https://share.test')=>viewer.fetch(new Request('https://share.test/view',{method:'POST',headers:{Origin:origin},body:JSON.stringify({token:tok})}),env);
  assert.equal((await (await view()).json()).snapshot.results.length,3);assert.equal((await view('0'.repeat(64))).status,404);assert.equal((await view(token,'https://evil.test')).status,403);
  assert.equal((await viewer.fetch(new Request('https://share.test/api/profiles'),env)).status,404);
  await assert.rejects(()=>api(new Request('https://main.test/api/shares',{method:'DELETE',body:JSON.stringify({id:created.id})}),env,{role:'owner',profileId:'other'}),{status:404});
- db.prepare('UPDATE kema_doctor_shares SET expires_at=1').run();assert.equal((await view()).status,404);db.prepare('UPDATE kema_doctor_shares SET expires_at=?').run(Date.now()/1000+3600);
- await api(new Request('https://main.test/api/shares',{method:'DELETE',body:JSON.stringify({id:created.id})}),env,{role:'owner',profileId:'p'});assert.equal((await view()).status,404);assert.equal(db.prepare('SELECT snapshot FROM kema_doctor_shares').get().snapshot,'');
+ db.prepare('UPDATE kema_doctor_shares SET expires_at=1').run();assert.equal((await view()).status,404);assert.ok(!(await (await list()).json()).shares[0].url);db.prepare('UPDATE kema_doctor_shares SET expires_at=?').run(Date.now()/1000+3600);
+ await api(new Request('https://main.test/api/shares',{method:'DELETE',body:JSON.stringify({id:created.id})}),env,{role:'owner',profileId:'p'});assert.equal((await view()).status,404);assert.equal(db.prepare('SELECT snapshot FROM kema_doctor_shares').get().snapshot,'');assert.ok(!(await (await list()).json()).shares[0].url);
 });

@@ -28,3 +28,4 @@
 #cloud-role-form .details-list strong{overflow-wrap:anywhere}
 .profile-switcher{max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @media(max-width:700px){.topbar-left{flex-wrap:wrap;gap:8px}.topbar{height:auto;min-height:70px;padding-top:10px;padding-bottom:10px}.profile-switcher{max-width:190px;font-size:11px}}
+.doctor-share-row{border:1px solid var(--line);border-radius:12px;padding:16px;margin-top:12px;display:flex;flex-wrap:wrap;align-items:center;gap:10px}.doctor-share-row>strong{flex:1}.doctor-share-row>small{color:var(--muted);font-size:12px}.doctor-share-link{flex-basis:100%;width:100%;margin:4px 0}.doctor-share-link textarea{width:100%;min-height:72px;font:12px/1.8 Consolas,monospace;overflow-wrap:anywhere;resize:vertical}.doctor-share-row .small-help{flex-basis:100%;margin:4px 0}.doctor-share-row button{min-height:44px}
