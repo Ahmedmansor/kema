@@ -69,6 +69,15 @@ test('writes validate data, origins, revisions and retain separate per-profile h
   assert.equal((await h.call(h.tokens.dad,'/api/profiles/father/state','PUT',{revision:0,data:empty('Father')})).status,200);
   for(const id of ['mother','father'])assert.equal(h.db.prepare('SELECT COUNT(*) AS n FROM kema_profile_history WHERE profile_id=?').get(id).n,1);
 });
+test('clinical state stays scoped and old clients cannot silently erase it',async t=>{
+  const h=await fixture(t);h.seed('mother',owner,'Mother');h.seed('father',dad,'Father');const p='/api/profiles/mother/state';
+  const clinical={version:1,doctors:[{id:'doc',name:'Doctor',specialty:'Test'}],visits:[{id:'v',doctorId:'doc',date:'',source:'Transcript'}],prescriptions:[{id:'rx',visitId:'v',name:'As written',instructions:'Original instructions'}],events:[]};
+  assert.equal((await h.call(h.tokens.owner,p,'PUT',{revision:0,data:{...empty('Mother'),clinical}})).status,200);
+  assert.equal((await (await h.call(h.tokens.owner,p)).json()).data.clinical.prescriptions[0].instructions,'Original instructions');
+  assert.equal((await h.call(h.tokens.dad,p)).status,404);
+  assert.equal((await h.call(h.tokens.owner,p,'PUT',{revision:1,data:empty('Mother')})).status,409);
+  assert.equal((await (await h.call(h.tokens.owner,p)).json()).revision,1);
+});
 test('legacy migration preserves records, history and viewers and is idempotent',async t=>{
   const h=await fixture(t),data=JSON.stringify(empty('Existing mother'));h.db.prepare("UPDATE kema_state SET data=?,revision=7 WHERE id='main'").run(data);h.db.prepare('INSERT INTO kema_history(revision,data) VALUES(?,?)').run(6,data);h.db.prepare('INSERT INTO kema_roles(email,role) VALUES(?,?)').run(other,'viewer');
   for(let i=0;i<2;i++)for(const q of legacyProfileMigration(owner))h.db.prepare(q.sql).run(...q.params);

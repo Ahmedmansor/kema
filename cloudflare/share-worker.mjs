@@ -15,7 +15,7 @@ export default {async fetch(request,env){
       if(!row)return json({error:'الرابط غير صالح أو انتهى أو ألغاه صاحبه.'},404);
       return json({snapshot:JSON.parse(row.snapshot),expiresAt:new Date(row.expires_at*1000).toISOString()});
     }
-    if(!['GET','HEAD'].includes(request.method)||!['/','/index.html','/view.mjs','/report.mjs','/report.css','/core.mjs'].includes(path))return json({error:'المسار غير موجود.'},404);
+    if(!['GET','HEAD'].includes(request.method)||!['/','/index.html','/view.mjs','/report.mjs','/report.css','/core.mjs','/clinical-core.mjs'].includes(path))return json({error:'المسار غير موجود.'},404);
     const response=await env.ASSETS.fetch(request);const h=new Headers(response.headers);for(const [key,value]of Object.entries(headers))h.set(key,value);return new Response(response.body,{status:response.status,headers:h});
   }catch{return json({error:'تعذّر فتح التقرير الآن.'},500);}
 }};

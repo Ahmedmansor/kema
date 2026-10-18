@@ -1,3 +1,4 @@
+import {validateClinical} from './clinical-core.mjs';
 export const TESTS = {
   glucose_fasting: { name: 'سكر صائم', short: 'FBS', group: 'sugar', unit: 'mg/dL' },
   glucose_2hr: { name: 'سكر بعد الأكل بساعتين', short: '2h Glucose', group: 'sugar', unit: 'mg/dL' },
@@ -131,7 +132,7 @@ export function validateBackup(data) {
     return {id:file.id,data:file.data};
   });
   for(const list of [documents,files,trash])if(new Set(list.map(r=>r.id)).size!==list.length)throw new Error('معرّفات مكررة في المرفقات أو المحذوفات.');
-  return { schemaVersion:SCHEMA_VERSION, profile:{ name:cleanText(data.profile?.name,120) }, results:data.results.map(validateResult), medications:data.medications.map(validateMedication),documents,trash,...(files.length?{files}:{}) };
+  return { schemaVersion:SCHEMA_VERSION, profile:{ name:cleanText(data.profile?.name,120) }, results:data.results.map(validateResult), medications:data.medications.map(validateMedication),clinical:validateClinical(data.clinical),documents,trash,...(files.length?{files}:{}) };
 }
 export function validateDocument(input){
   if(!input||!/^pdf_[a-f0-9]{64}$/.test(input.id)||!input.name||!Number.isInteger(input.size)||input.size<5||input.size>15*1024*1024)throw new Error('بيانات مرفق PDF غير صالحة (الحد 15 ميجابايت للملف).');
@@ -186,7 +187,7 @@ export function matchingVisits(results,visitId){
 }
 export function backupSignature(data){
   function canonical(value){if(Array.isArray(value))return value.map(canonical);if(value&&typeof value==='object')return Object.fromEntries(Object.keys(value).sort().map(k=>[k,canonical(value[k])]));return value;}
-  const text=JSON.stringify(canonical({profile:data.profile,results:data.results,medications:data.medications,documents:data.documents||[],trash:data.trash||[]}));
+  const text=JSON.stringify(canonical({profile:data.profile,results:data.results,medications:data.medications,clinical:validateClinical(data.clinical),documents:data.documents||[],trash:data.trash||[]}));
   let hash=0xcbf29ce484222325n;
   for(let i=0;i<text.length;i++)hash=BigInt.asUintN(64,(hash^BigInt(text.charCodeAt(i)))*0x100000001b3n);
   return hash.toString(16);

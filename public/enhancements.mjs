@@ -1,3 +1,4 @@
+import {mergeClinical} from './clinical-core.mjs';
 import {buildClinicalReport,selectReportData} from './report.mjs';
 import {GROUPS,meta,validateResult,validateReport,validateBackup,visits,compareVisits,comparisonTests,matchingVisits,backupSignature,softDelete,restoreDeleted,mergeRecords,fingerprint,status,reference,series,parseCSV} from './core.mjs';
 import {inspectPDF,putDocuments,readDocument,exportDocuments,decodeDocuments} from './documents.mjs';
@@ -184,7 +185,7 @@ export function createEnhancements(ctx){
       const missing=(incoming.documents||[]).filter(d=>!decoded.some(f=>f.id===d.id));
       const absent=[];for(const doc of missing)if(!await readDocument(doc.id))absent.push(doc);
       importData={incoming,decoded};
-      openModal('مراجعة الاستيراد',`<div class="modal-body">${errorBox()}<p>الملف: <bdi>${e(file.name)}</bdi></p><div class="import-preview"><strong>${resultMerge.added} نتائج جديدة · ${medMerge.added} أدوية جديدة</strong><div>${decoded.length} ملفات PDF مضمنة · ${(incoming.trash||[]).length} عناصر في المحذوفات</div><small>سيتم تجاهل ${resultMerge.skipped} نتائج و${medMerge.skipped} أدوية متطابقة. السجل الحالي لن يُمسح.</small></div>${absent.length?`<div class="screen-note">${absent.length} مرفقات مسجّلة بالاسم فقط؛ ملفاتها غير موجودة في هذه النسخة أو هذا المتصفح.</div>`:''}${incoming.profile.name?`<label class="checkbox-field"><input id="enhance-import-profile" type="checkbox"><span>تحديث اسم صاحب السجل إلى ${e(incoming.profile.name)}</span></label>`:''}<p class="small-help">الأرقام المختلفة لنفس التاريخ تُضاف كقياسات مستقلة للمراجعة. الملفات تُفحص ببصمة المحتوى قبل الحفظ.</p></div>`,footer('<button class="btn btn-primary" data-action="import-enhanced">تأكيد الاستيراد</button>'));
+      openModal('مراجعة الاستيراد',`<div class="modal-body">${errorBox()}<p>الملف: <bdi>${e(file.name)}</bdi></p><div class="import-preview"><strong>${resultMerge.added} نتائج جديدة · ${medMerge.added} أدوية جديدة</strong><div>${incoming.clinical.visits.length} زيارات وروشتات · ${decoded.length} ملفات PDF مضمنة · ${(incoming.trash||[]).length} عناصر في المحذوفات</div><small>سيتم تجاهل ${resultMerge.skipped} نتائج و${medMerge.skipped} أدوية متطابقة. السجل الحالي لن يُمسح.</small></div>${absent.length?`<div class="screen-note">${absent.length} مرفقات مسجّلة بالاسم فقط؛ ملفاتها غير موجودة في هذه النسخة أو هذا المتصفح.</div>`:''}${incoming.profile.name?`<label class="checkbox-field"><input id="enhance-import-profile" type="checkbox"><span>تحديث اسم صاحب السجل إلى ${e(incoming.profile.name)}</span></label>`:''}<p class="small-help">الأرقام المختلفة لنفس التاريخ تُضاف كقياسات مستقلة للمراجعة. الملفات تُفحص ببصمة المحتوى قبل الحفظ.</p></div>`,footer('<button class="btn btn-primary" data-action="import-enhanced">تأكيد الاستيراد</button>'));
     }catch(error){failed(error,'#import-error');}
   }
   async function confirmImport(button){
@@ -197,7 +198,7 @@ export function createEnhancements(ctx){
       results.items=results.items.map(r=>{const linked=incoming.results.find(n=>n.documentId&&fingerprint(n)===fingerprint(r));return !r.documentId&&linked?{...r,documentId:linked.documentId}:r;});
       const documents=[...(db.documents||[])];for(const doc of incoming.documents||[])if(!documents.some(d=>d.id===doc.id))documents.push(doc);
       const trash=[...(db.trash||[])];for(const item of incoming.trash||[])if(!trash.some(t=>t.id===item.id)&&!db[item.kind==='result'?'results':'medications'].some(r=>r.id===item.record.id))trash.push(item);
-      const next={...db,results:results.items,medications:medications.items,documents,trash,profile:$('#enhance-import-profile')?.checked?incoming.profile:db.profile};
+      const next={...db,results:results.items,medications:medications.items,clinical:mergeClinical(db.clinical,incoming.clinical),documents,trash,profile:$('#enhance-import-profile')?.checked?incoming.profile:db.profile};
       if(!ctx.save(next,{recover:true}))throw new Error(ctx.ui.storageError);
       closeModal();ctx.render();toast(`تمت إضافة ${results.added} نتائج و${medications.added} أدوية واستيراد المرفقات.`);
     }catch(error){failed(error);}finally{button.disabled=false;}

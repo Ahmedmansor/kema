@@ -1,4 +1,6 @@
 import { TESTS, englishName, GROUPS, SCHEMA_VERSION, meta, validateResult, validateMedication, status, reference, series, parseCSV, toCSV, validateBackup, mergeRecords, fingerprint, timeDomain } from './core.mjs';
+import { createClinical } from './clinical.mjs';
+import { mergeClinical } from './clinical-core.mjs';
 import { createEnhancements } from './enhancements.mjs';
 import { createCloudSync } from './cloud.mjs';
 import { prepareCloudAccount } from './profiles.mjs';
@@ -41,10 +43,11 @@ const badge = r => { const s = status(r); return `<span class="badge ${s.type}">
 let db = {schemaVersion:SCHEMA_VERSION, profile:{name:''}, results:[], medications:[]};
 const ui = { test:'hba1c', group:'sugar', unit:'', range:'all', point:null, archive:{q:'',group:'all',state:'all',from:'',to:'',page:1}, storageError:'', pendingImport:null };
 let toastTimer, returnFocus, lastStored = null, recoveryRequired = false, cloud=null;
-const navItems = [['overview','grid','نظرة عامة'],['trends','chart','متابعة التحاليل'],['archive','file','سجل النتائج'],['medications','pill','الأدوية']];
+const navItems = [['overview','grid','نظرة عامة'],['trends','chart','متابعة التحاليل'],['archive','file','سجل النتائج'],['medications','pill','فترات الأدوية'],['clinical','file','الزيارات والروشتات']];
 const route = () => navItems.some(n=>n[0]===location.hash.slice(1)) ? location.hash.slice(1) : 'overview';
 const writeActions=new Set(['profile','add-result','edit-result','delete-result','add-med','edit-med','delete-med','confirm-delete','confirm-import','new-report','add-report-row','remove-report-row','attach-document','restore-item','undo-delete','import-enhanced']);
-const writeForms=new Set(['result-form','med-form','profile-form','report-form','attach-form','review-form']);
+writeActions.add('clinical-write');
+const writeForms=new Set(['result-form','med-form','profile-form','report-form','attach-form','review-form','clinical-form','clinical-track']);
 const canWrite=()=>!cloudMode||Boolean(cloud?.canEdit());
 function applyPermissions(){
   if(!cloudMode)return;
@@ -59,6 +62,7 @@ if(cloudMode){
   document.addEventListener('change',event=>{if(!canWrite()&&event.target.id==='import-file'){event.preventDefault();event.stopImmediatePropagation();}},true);
   new MutationObserver(applyPermissions).observe(document.body,{childList:true,subtree:true});
 }
+const clinical=createClinical({getDB:()=>db,save,render,openModal,closeModal,toast,e,date,canWrite});
 const additions=createEnhancements({getDB:()=>db,save,render,openModal,closeModal,toast,e,icon,date,num,download,testName,testsAvailable,details,ui,KEY,chartFor:(rows,testId)=>{const prior={test:ui.test,unit:ui.unit};try{ui.test=testId;ui.unit=rows[0]?.unit||'';return chartSVG(rows);}finally{Object.assign(ui,prior);}}});
 
 function toast(message) {
@@ -180,7 +184,7 @@ function render() {
   $('#breadcrumb').textContent=navItems.find(n=>n[0]===current)[2];
   document.title=`${$('#breadcrumb').textContent} — Kema · Blood Tests`;
   $('.avatar').textContent=db.profile.name?db.profile.name[0]:'K';
-  const screen={overview:renderOverview,trends:renderTrends,archive:renderArchive,medications:renderMedications};
+  const screen={overview:renderOverview,trends:renderTrends,archive:renderArchive,medications:renderMedications,clinical:clinical.render};
   $('#main').innerHTML=`${ui.storageError?`<div class="storage-warning" role="alert">${e(ui.storageError)}</div>`:''}${screen[current]()}`;
   additions.decorate(current);
   if(cloudMode){const card=$('.info-card');if(card)card.innerHTML=`${icon('shield')}<h3>سجلك، معاك على أجهزتك</h3><p>نتائجك وأدويتك تتزامن مع حسابك الخاص. راجع مؤشر المزامنة قبل الانتقال لجهاز تاني، واحتفظ بنسخة احتياطية.</p><button class="text-button" data-cloud-action="panel">حسابي والمزامنة ${icon('arrow')}</button>`;}
@@ -266,7 +270,7 @@ document.addEventListener('click',event=>{
   if(action==='confirm-import') {
     const incoming=ui.pendingImport;if(!incoming)return;
     const results=mergeRecords(db.results,incoming.results),meds=mergeRecords(db.medications,incoming.medications,medFingerprint);
-    const next={...db,results:results.items,medications:meds.items,profile:$('#import-profile')?.checked?incoming.profile:db.profile};
+    const next={...db,results:results.items,medications:meds.items,clinical:mergeClinical(db.clinical,incoming.clinical),profile:$('#import-profile')?.checked?incoming.profile:db.profile};
     if(save(next,{recover:true})){closeModal();render();toast(`تمت إضافة ${results.added} نتائج و${meds.added} أدوية.`);}return;
   }
   if(action==='profile')openModal('اسم صاحب السجل',`<form id="profile-form"><div class="modal-body"><div class="form-error" id="form-error" role="alert"></div>${inputField('name','الاسم',db.profile.name,'text','maxlength="120"')}<p>نسخة البداية مخصصة لسجل شخص واحد.</p></div><div class="modal-footer"><button class="btn btn-primary" type="submit">حفظ الاسم</button><button type="button" class="btn" data-action="close-modal">إلغاء</button></div></form>`);
