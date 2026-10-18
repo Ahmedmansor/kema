@@ -60,6 +60,7 @@ async function stateAPI(request,env,profileId){
   for(const list of [data.results,data.medications])if(new Set(list.map(r=>r.id)).size!==list.length)throw new HttpError(400,'معرّفات سجلات مكررة.');
   const old=await env.DB.prepare('SELECT data,revision FROM kema_profile_state WHERE profile_id=?').bind(profileId).first();
   if(old.revision!==input.revision)return json({error:'السجل اتغيّر من جهاز تاني. راجع النسختين قبل المزامنة.',conflict:true},409);
+  if(old.data&&JSON.parse(old.data).clinical?.version===2&&input.data.clinical?.version!==2)return json({error:'حدّث الصفحة للحفاظ على التنبيهات والمحذوفات الطبية.',conflict:true},409);
   if(old.data&&!Object.hasOwn(input.data,'clinical')&&JSON.parse(old.data).clinical?.visits?.length)return json({error:'حدّث الصفحة للحفاظ على الزيارات والروشتات؛ نسخة التطبيق قديمة.',conflict:true},409);
   const prior=new Set(old.data?JSON.parse(old.data).documents?.map(d=>d.id):[]);
   for(const doc of data.documents.filter(d=>!prior.has(d.id))){const file=await env.PDFS.head(`${profileId}/${doc.id}`);if(!file||file.size!==doc.size)throw new HttpError(400,'ارفع ملفات PDF المرفقة أولًا قبل حفظ السجل.');}

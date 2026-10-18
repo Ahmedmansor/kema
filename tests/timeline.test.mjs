@@ -1,0 +1,25 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {timelineData,timelineSVG} from '../public/timeline.mjs';
+import {validateClinical,activeClinical,archiveClinical,mergeClinical} from '../public/clinical-core.mjs';
+import {selectReportData,buildClinicalReport} from '../public/report.mjs';
+import {createClinical} from '../public/clinical.mjs';
+const clinical=()=>({version:1,doctors:[{id:'d',name:'Doctor <test>',specialty:'Specialty'}],visits:[{id:'v1',doctorId:'d',date:'2025-01-01',source:'Transcript'},{id:'v2',doctorId:'d',date:'',source:'Undated'}],prescriptions:[{id:'p1',visitId:'v1',name:'Medicine',instructions:'As written'},{id:'p2',visitId:'v2',name:'Medicine',instructions:'No date'}],events:[{id:'n',visitId:'v1',kind:'warning',text:'Important <warning>',pinned:true}]});
+const db=()=>({schemaVersion:1,profile:{name:'Test'},clinical:clinical(),medications:[],results:[{id:'r1',date:'2025-01-01',testId:'hba1c',name:'Test',value:5,unit:'%',refMin:null,refMax:null},{id:'r2',date:'2025-02-01',testId:'hba1c',name:'Test',value:40,unit:'mmol/mol',refMin:null,refMax:null}]});
+const selected={tests:[JSON.stringify(['hba1c','%']),JSON.stringify(['hba1c','mmol/mol'])],medications:['Medicine']};
+test('timeline shares real dates, separates units and excludes unknown dates from plotting',()=>{
+ const model=timelineData(db(),selected);assert.equal(model.prescriptions.length,1);assert.equal(model.undated.length,1);assert.equal(model.results.length,2);assert.equal(model.start,'2025-01-01');assert.equal(model.end,'2025-02-01');const svg=timelineSVG(model);assert.equal((svg.match(/<polyline/g)||[]).length,2);assert.match(svg,/data-timeline-rx="p1"/);assert.ok(!svg.includes('data-timeline-rx="p2"'));assert.ok(!svg.includes('Doctor <test>'));assert.ok(!svg.includes('NaN'));
+ const onlyMeds=timelineData(db(),{...selected,tests:[]});assert.ok(!timelineSVG(onlyMeds).includes('NaN'));
+ assert.equal(timelineData(db(),{...selected,doctor:'other'}).prescriptions.length,0);assert.equal(timelineData(db(),{...selected,showMedications:false}).prescriptions.length,0);assert.equal(timelineData(db(),{...selected,from:'2025-01-02'}).prescriptions.length,0);assert.throws(()=>timelineData(db(),{from:'2026-03-01',to:'2025-01-01'}));
+});
+test('medical trash hides a visit, its alerts and prescriptions; restore keeps independently deleted items deleted',()=>{
+ const original=clinical(),deleted=archiveClinical(original,'prescriptions','p1');const hidden=archiveClinical(deleted,'visits','v1');assert.equal(activeClinical(hidden).prescriptions.length,1);assert.equal(activeClinical(hidden).events.length,0);assert.throws(()=>archiveClinical(hidden,'prescriptions','p1',true));const restored=archiveClinical(hidden,'visits','v1',true);assert.equal(activeClinical(restored).prescriptions.length,1);assert.equal(activeClinical(restored).events.length,1);assert.equal(activeClinical(archiveClinical(restored,'prescriptions','p1',true)).prescriptions.length,2);assert.equal(activeClinical(mergeClinical(deleted,original)).prescriptions.length,1);
+});
+test('pinned alerts are opt-in to doctor snapshots, escaped, and removed when archived with visit',()=>{
+ const data=db();assert.ok(!('alerts' in selectReportData(data)));const selected=selectReportData(data,{alerts:true});assert.equal(selected.alerts.length,1);assert.equal(selected.alerts[0].doctor,'Doctor <test>');assert.ok(!('clinical' in selected));assert.ok(!buildClinicalReport(selected).includes('Important <warning>'));data.clinical=archiveClinical(data.clinical,'visits','v1');assert.equal(selectReportData(data,{alerts:true}).alerts.length,0);assert.equal(validateClinical(clinical()).version,2);
+});
+test('clinical controls pin, confirm soft deletion and restore while rejecting viewer mutations',t=>{
+ const prior=globalThis.document,listeners={};globalThis.document={addEventListener:(name,fn)=>listeners[name]=fn};t.after(()=>{globalThis.document=prior;});let data=db(),allowed=true,saves=0,modal='';
+ const ui=createClinical({getDB:()=>data,canWrite:()=>allowed,save:next=>{data=next;saves++;return true;},e:v=>String(v??'').replaceAll('<','&lt;'),date:d=>d,openModal:(title,body)=>{modal=title+body;},closeModal:()=>{},toast:()=>{},render:()=>{}});
+ const click=(action,id='n')=>listeners.click({target:{closest:()=>({dataset:{clinical:action,id}})}});
+ assert.match(ui.renderHomeAlerts(),/Important/);click('pin-event');assert.equal(ui.renderHomeAlerts(),'');click('pin-event');click('delete-event');assert.match(modal,/تأكيد النقل/);assert.equal(activeClinical(data.clinical).events.length,1);click('delete-confirm');assert.equal(activeClinical(data.clinical).events.length,0);click('restore-event');assert.equal(activeClinical(data.clinical).events.length,1);allowed=false;const before=saves;click('pin-event');click('delete-event');click('restore-event');assert.equal(saves,before);assert.ok(!ui.render().includes('data-clinical="delete-event"'));
+});
