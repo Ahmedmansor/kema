@@ -23,13 +23,13 @@ test('guest mounts the same application and charts, blocks mutations and clears 
  const resultId=overview.match(/data-action="chart-point" data-id="([^"]+)"/)[1];
  const point={...target({action:'chart-point',id:resultId},'data-action'),matches:s=>s==='.chart .point'};
  await dispatch('focusin',point);assert.equal(q('#modal').open,false);
- await dispatch('click',point);assert.equal(q('#modal').open,true);assert.match(q('#modal-content').innerHTML,/تفاصيل نتيجة التحليل/);assert.match(q('#modal-content').innerHTML,/HbA1c/);
+ await dispatch('click',point);assert.equal(q('#modal').open,true);assert.match(q('#modal-content').innerHTML,/تفاصيل نتيجة التحليل/);assert.match(q('#modal-content').innerHTML,/HbA1c/);assert.match(q('#modal-content').innerHTML,/class="result-highlight result-high"/);
  q('#modal').close();await dispatch('keydown',point,'Enter');assert.equal(q('#modal').open,true);q('#modal').close();
  await dispatch('focusin',point);assert.equal(q('#modal').open,false);
  globalThis.location.hash='#'+'a'.repeat(64)+'/medications';windowEvents.hashchange();assert.match(q('#main').innerHTML,/Shared medicine/);assert.doesNotMatch(q('#main').innerHTML,/data-clinical="edit-prescription"/);
  globalThis.location.hash='#'+'a'.repeat(64)+'/clinical';windowEvents.hashchange();assert.match(q('#main').innerHTML,/Shared instructions/);assert.doesNotMatch(q('#main').innerHTML,/data-clinical="new-visit"/);
  await dispatch('click',target({timelineRx:'p'},'data-timeline-rx'));assert.match(q('#modal-content').innerHTML,/Shared instructions/);assert.match(q('#modal-content').innerHTML,/Drug-specific note &lt;test&gt;/);
  snapshot.profile.name='Updated patient';globalThis.window.innerWidth=390;globalThis.location.hash='#'+'a'.repeat(64)+'/overview';await intervals[0]();assert.match(q('#main').innerHTML,/Updated patient/);
- assert.doesNotMatch(q('#main').innerHTML,/mobile-prescription-names/);assert.ok(q('#main').innerHTML.includes('<div id="chart-details"></div>'));assert.match(q('#main').innerHTML,/viewBox="0 0 328 598"/);assert.match(q('#main').innerHTML,/class="timeline-point rx-mobile-drug" data-timeline-rx="p"/);
+ assert.doesNotMatch(q('#main').innerHTML,/mobile-prescription-names/);assert.ok(q('#main').innerHTML.includes('<div id="chart-details"></div>'));assert.match(q('#main').innerHTML,/viewBox="0 0 328 245"/);assert.match(q('#main').innerHTML,/class="timeline-point rx-mobile-drug" data-timeline-rx="p"/);const mobile=q('#main').innerHTML;assert.ok(mobile.indexOf('mobile-rx-filters')<mobile.indexOf('منحنى الروشتات وأسماء الأدوية'));assert.match(mobile.slice(mobile.indexOf('mobile-rx-filters')),/data-chart-rx-specialty/);
  revoked=true;await intervals[0]();assert.equal(q('#navigation').innerHTML,'');assert.equal(q('#modal-content').innerHTML,'');assert.match(q('#main').textContent,/ملغي/);assert.ok(calls.every(c=>c.url==='/view'&&c.method==='POST'));
 });

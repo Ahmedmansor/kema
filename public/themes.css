@@ -63,3 +63,50 @@ html[data-theme=dark] .chart svg .rx-mobile-drug text{fill:var(--rx-color);filte
  #chart-panel .chart-range-note{font-size:10px;line-height:1.5;margin:5px 12px 6px}
  #chart-panel .timeline-heading{font-size:12px}
 }
+.details-list>div.result-highlight{padding:14px;border-radius:12px;background:var(--green-soft);border:1px solid var(--green);align-items:center;margin:8px 0}
+.details-list .result-highlight dt{font-weight:700;color:var(--ink)}
+.details-list .result-highlight dd{font-size:27px;font-weight:800;line-height:1.4;color:var(--ink)}
+.details-list>div.result-highlight.result-high{background:var(--zone-high);border-color:var(--dot-high)}
+.details-list>div.result-highlight.result-low{background:var(--zone-low);border-color:var(--dot-low)}
+.mobile-rx-filters{direction:rtl;padding:8px 4px 0}
+.mobile-rx-filters .rx-specialty-options{gap:8px;align-items:center}
+.mobile-rx-filters .rx-specialty-choice{font-size:10px;min-height:32px;gap:5px;padding:4px 7px;border-radius:7px}
+.mobile-rx-filters .rx-specialty-choice input{width:14px;height:14px;margin:0;accent-color:var(--green)}
+.mobile-rx-filters .rx-specialty-choice .timeline-swatch{width:8px;height:8px;margin:0}
+.mobile-rx-filters .btn{font-size:10px;padding:4px 7px;min-height:32px}
+@media(max-width:599px){
+ .stats-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:16px}
+ .stat-card{padding:10px;border-radius:11px}
+ .stat-top .stat-name{font-size:11px;line-height:1.5}
+ .stat-card .test-english{font-size:9px;line-height:1.4;margin-top:2px}
+ .stat-card .stat-icon{display:none}
+ .stat-card .stat-date{font-size:9px;margin-top:5px}
+ .stat-card .stat-date .icon{width:12px;height:12px}
+ .stat-card .stat-value{margin:6px 0 3px;gap:4px}
+ .stat-card .stat-value strong{font-size:24px}
+ .stat-card .unit{font-size:10px}
+ .stat-card .sparkline{height:19px;margin:3px 0}
+ .stat-card .stat-bottom{gap:3px;font-size:9px}
+ .stat-card .badge{padding:2px 5px;font-size:9px}
+ .home-alerts.alert-deck{margin-bottom:16px}
+ .alert-deck-heading{margin-bottom:9px;gap:8px}
+ .alert-deck-heading h2{font-size:16px}
+ .alert-deck-eyebrow{font-size:10px;margin-bottom:0}
+ .alert-deck-count{font-size:10px;padding:3px 8px}
+ .alert-deck-grid{gap:10px}
+ .alert-deck .alert-note-card{padding:11px 13px;border-radius:13px}
+ .alert-deck .alert-note-pinned{min-height:0;height:auto}
+ .alert-deck .alert-note-pinned .alert-card-body{min-height:36px}
+ .alert-deck .alert-note-pinned .alert-card-body h3{font-size:18px;line-height:1.5}
+ .alert-deck .alert-card-body h3{font-size:13px;line-height:1.7}
+ .alert-deck .alert-note-card:not(.alert-note-pinned),.alert-deck .home-alert-slide-window{height:224px}
+ .alert-card-top{margin-bottom:7px}
+ .alert-card-icon{width:28px;height:28px;border-radius:9px}
+ .alert-card-icon svg{width:18px;height:18px}
+ .alert-card-tag{font-size:9px;padding:3px 7px}
+ .alert-card-explanation{font-size:10px;line-height:1.6;margin-top:5px}
+ .alert-card-meta{font-size:9px;padding-top:6px;margin-top:6px;gap:3px 8px}
+ .alert-card-footer{margin-top:2px;min-height:32px}
+ .alert-deck .alert-source-link,.alert-deck .alert-card-footer .btn{font-size:10px;min-height:32px}
+ .alert-deck .alert-rotation-controls{padding-top:5px}
+}
