@@ -30,6 +30,6 @@ test('guest mounts the same application and charts, blocks mutations and clears 
  globalThis.location.hash='#'+'a'.repeat(64)+'/clinical';windowEvents.hashchange();assert.match(q('#main').innerHTML,/Shared instructions/);assert.doesNotMatch(q('#main').innerHTML,/data-clinical="new-visit"/);
  await dispatch('click',target({timelineRx:'p'},'data-timeline-rx'));assert.match(q('#modal-content').innerHTML,/Shared instructions/);assert.match(q('#modal-content').innerHTML,/Drug-specific note &lt;test&gt;/);
  snapshot.profile.name='Updated patient';globalThis.window.innerWidth=390;globalThis.location.hash='#'+'a'.repeat(64)+'/overview';await intervals[0]();assert.match(q('#main').innerHTML,/Updated patient/);
- assert.doesNotMatch(q('#main').innerHTML,/mobile-prescription-names/);assert.match(q('#main').innerHTML,/viewBox="0 0 328 624"/);assert.match(q('#main').innerHTML,/class="timeline-point rx-mobile-drug" data-timeline-rx="p"/);
+ assert.doesNotMatch(q('#main').innerHTML,/mobile-prescription-names/);assert.ok(q('#main').innerHTML.includes('<div id="chart-details"></div>'));assert.match(q('#main').innerHTML,/viewBox="0 0 328 598"/);assert.match(q('#main').innerHTML,/class="timeline-point rx-mobile-drug" data-timeline-rx="p"/);
  revoked=true;await intervals[0]();assert.equal(q('#navigation').innerHTML,'');assert.equal(q('#modal-content').innerHTML,'');assert.match(q('#main').textContent,/ملغي/);assert.ok(calls.every(c=>c.url==='/view'&&c.method==='POST'));
 });

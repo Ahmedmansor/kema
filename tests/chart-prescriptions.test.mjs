@@ -32,7 +32,7 @@ test('the original test plot and optional prescription curves share date coordin
  const rx={prescriptions:[{...db.clinical.prescriptions[0],visit:db.clinical.visits[0],doctor:db.clinical.doctors[0]}],start:'2026-05-01',end:'2026-10-15'};
  const viewport={innerWidth:1200},toggle={enabled:true};const svg=render(viewport,toggle,timeDomain,db,{test:'triglycerides'},meta,String,()=> 'Triglycerides',String,new Intl.DateTimeFormat('en'),String,status,prescriptionCurve,CURVE_HEIGHT,chartRanges,rangeAt,rangeBackground,compactCurveHeight);
  const combined=svg(rows,rx);assert.match(combined,/data-timeline-rx="p"/);assert.match(combined,/data-action="chart-point"/);
- const domain=timeDomain([...rows,{date:rx.start},{date:rx.end}]),x=d=>90+(Date.parse(d+'T00:00:00Z')-domain.min)/(domain.max-domain.min)*885;
+ const domain=timeDomain([...rows,{date:rx.start},{date:rx.end}]),x=d=>90+(Date.parse(d+'T00:00:00Z')-domain.min)/(domain.max-domain.min)*868;
  assert.ok(combined.includes(`cx="${x(rows[0].date)}"`));assert.ok(combined.includes(`cx="${x(rx.start)}"`));assert.ok(!combined.includes('NaN'));assert.match(combined,/viewBox="0 0 1000 760"/);
  assert.doesNotMatch(svg(rows),/data-timeline-rx/); // Exported report charts have no overlay model.
  for(const width of [320,390,430]){viewport.innerWidth=width;const mobile=svg(rows,rx);assert.match(mobile,new RegExp(`viewBox="0 0 ${Math.max(250,width-62)} ${245+15+compactCurveHeight(rx)+30}"`));assert.match(mobile,/data-timeline-bundle/);assert.doesNotMatch(mobile,/medication-name-label|rotate\(/);assert.ok(!mobile.includes('NaN'));const names=mobile;assert.match(names,/data-timeline-rx="p"/);assert.match(names,/Medicine/);assert.match(names,/2026-05-01/);}

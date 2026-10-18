@@ -51,7 +51,7 @@ html[data-theme]{background:var(--bg)}.prescription-notes{margin-top:10px;border
 .rx-mobile-date{fill:var(--muted);font-family:Arial,sans-serif}
 .rx-mobile-drug{cursor:pointer}
 .rx-mobile-drug:focus rect,.rx-mobile-drug:hover rect{fill:var(--green-soft);stroke:var(--green);stroke-width:1}
-html[data-theme=dark] .chart svg .rx-mobile-drug text{filter:brightness(1.65)}
+html[data-theme=dark] .chart svg .rx-mobile-drug text{fill:var(--rx-color);filter:brightness(1.65)}
 @media(max-width:599px){
  #chart-panel .chart,#chart-panel .chart.chart-with-rx{width:100%;max-width:100%;height:auto;overflow:visible;padding:4px 10px 0;touch-action:pan-y pinch-zoom}
  #chart-panel .chart svg,#chart-panel .chart.chart-with-rx svg{width:100%;min-width:0;max-width:100%;height:auto!important;display:block}
