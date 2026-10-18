@@ -301,12 +301,13 @@ document.addEventListener('click',event=>{
   }
   if(action==='profile')openModal('اسم صاحب السجل',`<form id="profile-form"><div class="modal-body"><div class="form-error" id="form-error" role="alert"></div>${inputField('name','الاسم',db.profile.name,'text','maxlength="120"')}<p>نسخة البداية مخصصة لسجل شخص واحد.</p></div><div class="modal-footer"><button class="btn btn-primary" type="submit">حفظ الاسم</button><button type="button" class="btn" data-action="close-modal">إلغاء</button></div></form>`);
 });
-function selectPoint(id) {
+function selectPoint(id,showDetails=true) {
   ui.point=id;const r=db.results.find(r=>r.id===id);if(!r)return;
   $('#chart-details').innerHTML=pointDetails(r);
   document.querySelectorAll('.chart .point').forEach(p=>{p.setAttribute('r',p.dataset.id===id?'7':'5');p.setAttribute('aria-pressed',String(p.dataset.id===id));});
+  if(showDetails)details(id);
 }
-document.addEventListener('focusin',event=>{if(event.target.matches('.chart .point'))selectPoint(event.target.dataset.id);});
+document.addEventListener('focusin',event=>{if(event.target.matches('.chart .point'))selectPoint(event.target.dataset.id,false);});
 document.addEventListener('keydown',event=>{if(event.target.matches('.chart .point')&&(event.key==='Enter'||event.key===' ')){event.preventDefault();selectPoint(event.target.dataset.id);}});
 document.addEventListener('input',event=>{
   if(event.target.id==='archive-search'){ui.archive.q=event.target.value;ui.archive.page=1;updateArchive();}

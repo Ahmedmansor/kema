@@ -17,9 +17,15 @@ test('guest mounts the same application and charts, blocks mutations and clears 
  const chartContent=overview.slice(chartStart,settingsStart);assert.doesNotMatch(chartContent,/data-chart-rx-options|data-chart-rx-focus|data-chart-rx-specialty/);
  assert.match(overview.slice(settingsStart),/data-chart-rx-specialty/);assert.match(overview.slice(settingsStart),/data-chart-rx-focus/);
  assert.doesNotMatch(overview,/العلاج في الصورة/);
- const dispatch=async(type,target)=>{let stopped=false;const event={target,preventDefault(){},stopImmediatePropagation(){stopped=true;}};for(const {fn}of [...events[type]].sort((a,b)=>Number(Boolean(b.capture))-Number(Boolean(a.capture)))){await fn(event);if(stopped)break;}return stopped;};
+ const dispatch=async(type,target,key)=>{let stopped=false;const event={target,key,preventDefault(){},stopImmediatePropagation(){stopped=true;}};for(const {fn}of [...events[type]].sort((a,b)=>Number(Boolean(b.capture))-Number(Boolean(a.capture)))){await fn(event);if(stopped)break;}return stopped;};
  function target(dataset,attribute){const n={dataset,hasAttribute:name=>name===attribute,closest:s=>s.includes(attribute)?n:null};return n;}
  assert.equal(await dispatch('click',target({action:'add-result'},'data-action')),true);assert.equal(q('#modal').open,false);
+ const resultId=overview.match(/data-action="chart-point" data-id="([^"]+)"/)[1];
+ const point={...target({action:'chart-point',id:resultId},'data-action'),matches:s=>s==='.chart .point'};
+ await dispatch('focusin',point);assert.equal(q('#modal').open,false);
+ await dispatch('click',point);assert.equal(q('#modal').open,true);assert.match(q('#modal-content').innerHTML,/تفاصيل نتيجة التحليل/);assert.match(q('#modal-content').innerHTML,/HbA1c/);
+ q('#modal').close();await dispatch('keydown',point,'Enter');assert.equal(q('#modal').open,true);q('#modal').close();
+ await dispatch('focusin',point);assert.equal(q('#modal').open,false);
  globalThis.location.hash='#'+'a'.repeat(64)+'/medications';windowEvents.hashchange();assert.match(q('#main').innerHTML,/Shared medicine/);assert.doesNotMatch(q('#main').innerHTML,/data-clinical="edit-prescription"/);
  globalThis.location.hash='#'+'a'.repeat(64)+'/clinical';windowEvents.hashchange();assert.match(q('#main').innerHTML,/Shared instructions/);assert.doesNotMatch(q('#main').innerHTML,/data-clinical="new-visit"/);
  await dispatch('click',target({timelineRx:'p'},'data-timeline-rx'));assert.match(q('#modal-content').innerHTML,/Shared instructions/);assert.match(q('#modal-content').innerHTML,/Drug-specific note &lt;test&gt;/);
