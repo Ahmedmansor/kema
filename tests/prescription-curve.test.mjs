@@ -1,7 +1,15 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {prescriptionCurveGroups,specialtyGroup,specialtyColor,prescriptionCurve} from '../public/prescription-curve.mjs';
+import {prescriptionCurveGroups,specialtyGroup,specialtyColor,prescriptionCurve,compactCurveHeight} from '../public/prescription-curve.mjs';
 import {timelineSVG} from '../public/timeline.mjs';
 const row=(id,specialty,date,name)=>({id,name,instructions:'Instructions',visit:{id:'v'+id,date},doctor:{id:'d'+id,name:'Doctor',specialty}});
+test('mobile prescription branches preserve every medicine within viewport and grow vertically for dense visits',()=>{
+ const model={prescriptions:Array.from({length:37},(_,i)=>row(String(i),i<20?'عظام':'مخ وأعصاب',i<20?'2026-01-01':'2026-02-01','Medicine <'+i+'> with long name'))};
+ for(const W of [250,328,368]){const height=compactCurveHeight(model),svg=prescriptionCurve(model,{compact:true,W,L:36,R:14,x:d=>d==='2026-01-01'?36:W-14});
+ assert.equal((svg.match(/class="timeline-point rx-mobile-drug"/g)||[]).length,37);assert.equal((svg.match(/rx-mobile-connector/g)||[]).length,2);assert.doesNotMatch(svg,/NaN|Infinity|rotate\(/);assert.match(svg,/Medicine &lt;0&gt; with long name/);
+ for(const rect of svg.matchAll(/<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="44"/g)){assert.ok(+rect[1]>=0);assert.ok(+rect[1]+ +rect[3]<=W);assert.ok(+rect[2]+44<height);}
+ }
+ assert.ok(compactCurveHeight({prescriptions:model.prescriptions.slice(0,1)})<compactCurveHeight(model));
+});
 test('prescription curves count written items by specialty and actual date with stable specialty colors',()=>{
  const model={results:[],start:'2025-01-01',end:'2025-02-01',prescriptions:[row('a','عظام وعمود فقري','2025-01-01','Medicine A'),row('b','عظام','2025-01-01','Medicine B'),row('c','مخ وأعصاب','2025-02-01','Medicine <C>')]};
  const groups=prescriptionCurveGroups(model);assert.equal(groups.length,2);assert.equal(groups[0].rows.length,2);assert.equal(specialtyColor('عظام'),specialtyColor('عظام وعمود فقري'));assert.notEqual(specialtyColor('عظام'),specialtyColor('مخ وأعصاب'));assert.equal(specialtyGroup('أنف وأذن وحنجرة'),'الأنف والأذن والحنجرة');
