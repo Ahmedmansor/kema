@@ -1,0 +1,20 @@
+import {timelineData} from './timeline.mjs';
+import {activeClinical} from './clinical-core.mjs';
+const e=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+// Match the existing test period: months are counted from its latest result.
+export function chartPrescriptionSelection(rows,{testId,unit,range='all',medications=[],doctor='',enabled=false}){
+ let from='',to='';
+ if(range!=='all'&&rows.length){to=rows.at(-1).date;const cutoff=new Date(to+'T00:00:00Z');cutoff.setUTCMonth(cutoff.getUTCMonth()-Number(range));from=cutoff.toISOString().slice(0,10);}
+ return {tests:[JSON.stringify([testId,unit])],medications,doctor,from,to,showMedications:enabled};
+}
+export function createChartPrescriptions(ctx){
+ let enabled=false,chosen=null,doctor='';
+ const options=()=>{const c=activeClinical(ctx.getDB().clinical),meds=[...new Set(c.prescriptions.map(p=>p.name))].sort();if(chosen===null&&meds.length)chosen=new Set(meds);return {c,meds};};
+ function model(rows,settings){options();const selection=chartPrescriptionSelection(rows,{...settings,enabled,medications:[...(chosen||[])],doctor});ctx.select(selection);return timelineData(ctx.getDB(),selection);}
+ function controls(){const {c,meds}=options();return `<div class="chart-rx-controls"><label class="timeline-switch"><input type="checkbox" data-chart-rx-show ${enabled?'checked':''}> إظهار منحنى الروشتات وأسماء الأدوية مع التحليل</label>${enabled?`<details class="timeline-choices" data-chart-rx-options><summary>اختيار الأدوية والطبيب (${meds.filter(n=>chosen?.has(n)).length})</summary><label class="field"><span>الطبيب كاتب الروشتة</span><select class="select" data-chart-rx-doctor><option value="">كل الأطباء</option>${c.doctors.map(d=>`<option value="${e(d.id)}" ${doctor===d.id?'selected':''}>${e(d.name)}</option>`).join('')}</select></label><button class="btn btn-small" data-chart-rx-all="all">اختيار الكل</button><button class="btn btn-small" data-chart-rx-all="none">إلغاء اختيار الكل</button><div>${meds.map(name=>`<label><input type="checkbox" data-chart-rx-med value="${e(name)}" ${chosen?.has(name)?'checked':''}><span dir="auto">${e(name)}</span></label>`).join('')||'لا توجد أدوية مسجلة في الروشتات.'}</div></details><p class="timeline-help">نفس الفترة ومحور التاريخ للتحليل المختار. اضغط اسم الدواء أو نقطته لمعرفة الطبيب والتعليمات. ارتفاع منحنى الروشتات هو عدد بنود الأدوية، ولا يمثل جرعة أو فترة تناول.</p>`:''}</div>`;}
+ function refresh(target){const open=document.querySelector('[data-chart-rx-options]')?.open,attr=['data-chart-rx-show','data-chart-rx-med','data-chart-rx-doctor','data-chart-rx-all'].find(a=>target.hasAttribute(a)),value=target.value;ctx.update();const details=document.querySelector('[data-chart-rx-options]');if(details)details.open=Boolean(open);if(attr)[...document.querySelectorAll('['+attr+']')].find(n=>n.value===value)?.focus({preventScroll:true});}
+ document.addEventListener('change',event=>{const t=event.target;if(t.matches('[data-chart-rx-show]'))enabled=t.checked;else if(t.matches('[data-chart-rx-med]')){t.checked?chosen.add(t.value):chosen.delete(t.value);}else if(t.matches('[data-chart-rx-doctor]'))doctor=t.value;else return;refresh(t);});
+ document.addEventListener('click',event=>{const t=event.target.closest('[data-chart-rx-all]');if(!t)return;chosen=new Set(t.dataset.chartRxAll==='all'?options().meds:[]);refresh(t);});
+ return {controls,model,get enabled(){return enabled;}};
+}
