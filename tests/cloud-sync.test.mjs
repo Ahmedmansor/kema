@@ -27,6 +27,12 @@ function harness(t){
   const sync=createCloudSync({account:{base:'/api/profiles/test',scope:'testscope',selected:{id:'test',name:'Test'}},getDB:()=>db,apply:data=>{db=data;},render(){},openModal(){},closeModal(){},toast(){},e:String,download(){}});
   return {sync,events,saved,timers,nodes,set revoked(value){revoked=value;},set role(value){role=value;},get db(){return db;},set db(value){db=value;},get remote(){return remote;},set remote(value){remote=value;},get writes(){return writes;},set offline(value){offline=value;},set reads(value){reads=value;},async flush(){const fn=timers.shift();if(fn)fn();for(let i=0;i<8;i++)await tick();}};
 }
+test('owner sees a direct doctor guest-link action at the front of the record toolbar',async t=>{
+ const h=harness(t);h.role='owner';let first;
+ h.nodes.set('.feature-toolbar',{prepend:node=>{first=node;h.nodes.set('#doctor-share-button',node);}});
+ await h.sync.init();assert.equal(first.id,'doctor-share-button');assert.equal(first.dataset.cloudAction,'doctor-shares');assert.equal(first.textContent,'رابط الطبيب');assert.match(first.className,/btn-primary/);
+ assert.equal(h.nodes.get('#cloud-button').textContent,'حسابي');
+});
 test('cloud outbox survives failed upload and retries the same revision on reconnect',async t=>{
   const h=harness(t);await h.sync.init();h.db={...h.db,results:[result]};h.offline=true;h.sync.schedule();await h.flush();
   assert.equal(JSON.parse(h.saved.get('testscope.sync')).dirty,true);assert.equal(h.db.results.length,1);

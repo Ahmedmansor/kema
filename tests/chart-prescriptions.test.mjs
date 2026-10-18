@@ -22,6 +22,7 @@ test('integrated controls default on, preserve filters and drive one shared char
  change('data-chart-rx-show','on',false);assert.equal(ui.model(rows,settings).prescriptions.length,0);
  change('data-chart-rx-show','on',true);let model=ui.model(rows,settings);assert.equal(model.prescriptions.length,1);assert.equal(model.undated.length,1);assert.equal(model.results[0].testId,'triglycerides');assert.equal(selection.from,'2026-04-15');
  assert.match(ui.controls(),/data-chart-rx-med/);assert.doesNotMatch(ui.controls(),/chart-test|timeline-filters/);
+ const compactLegend=ui.specialties({compact:true});assert.match(compactLegend,/>عظام<\/span>/);assert.match(compactLegend,/value="العظام والعمود الفقري"/);assert.doesNotMatch(compactLegend,/data-chart-rx-all/);
  model=ui.model(rows,{...settings,range:'all'});assert.equal(model.prescriptions.length,2);
  change('data-chart-rx-med','Medicine',false);assert.equal(ui.model(rows,settings).prescriptions.length,0);assert.equal(updates,3);
 });

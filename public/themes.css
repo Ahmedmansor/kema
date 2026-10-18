@@ -54,7 +54,7 @@ html[data-theme]{background:var(--bg)}.prescription-notes{margin-top:10px;border
 html[data-theme=dark] .chart svg .rx-mobile-drug text{fill:var(--rx-color);filter:brightness(1.65)}
 @media(max-width:599px){
  #chart-panel .chart,#chart-panel .chart.chart-with-rx{width:100%;max-width:100%;height:auto;overflow:visible;padding:4px 10px 0;touch-action:pan-y pinch-zoom}
- #chart-panel .chart svg,#chart-panel .chart.chart-with-rx svg{width:100%;min-width:0;max-width:100%;height:auto!important;display:block}
+ #chart-panel .chart>svg,#chart-panel .chart.chart-with-rx>svg{width:100%;min-width:0;max-width:100%;height:auto!important;display:block}
  #chart-panel .chart-range-key{padding:6px 12px 0;gap:5px;flex-wrap:wrap}
  #chart-panel .range-chip{padding:3px 6px;border-radius:6px;gap:4px;min-width:0;font-size:11px}
  #chart-panel .range-chip i{width:5px;height:16px}
@@ -109,4 +109,30 @@ html[data-theme=dark] .chart svg .rx-mobile-drug text{fill:var(--rx-color);filte
  .alert-card-footer{margin-top:2px;min-height:32px}
  .alert-deck .alert-source-link,.alert-deck .alert-card-footer .btn{font-size:10px;min-height:32px}
  .alert-deck .alert-rotation-controls{padding-top:5px}
+}
+/* Color swatches must never inherit the size of a chart canvas. */
+.mobile-rx-filters svg.timeline-swatch{display:inline-block;width:6px;min-width:6px;max-width:6px;height:6px!important;flex:0 0 6px}
+.mobile-rx-filters .rx-specialty-options{display:flex;flex-wrap:nowrap;gap:4px;width:100%;min-width:0;justify-content:space-between}
+.mobile-rx-filters .rx-specialty-choice{flex:0 1 auto;min-width:0;min-height:30px;padding:2px 0;gap:2px;background:transparent;border:0;font-size:9px;white-space:nowrap}
+.mobile-rx-filters .rx-specialty-choice span{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mobile-rx-filters .rx-specialty-choice input{width:11px;height:11px;flex:0 0 11px}
+#doctor-share-button{display:inline-flex;order:-1;background:var(--green);color:var(--bg);white-space:nowrap}
+@media(max-width:599px){
+ .topbar{height:52px;min-height:52px;padding:6px 12px;gap:8px;flex-wrap:nowrap}
+ .topbar:before{content:'Kema';font:750 18px/1 Arial,sans-serif;color:var(--green);flex-shrink:0}
+ .topbar .breadcrumb,.topbar .save-state{display:none}
+ .topbar-left{display:flex;flex-wrap:nowrap;flex:1;min-width:0;gap:5px;justify-content:flex-end}
+ #profile-button{order:0;flex:1;min-width:0;max-width:180px;padding:5px 6px;min-height:32px;font-size:10px}
+ #cloud-button{order:1;min-height:32px;font-size:10px;padding:3px 5px;white-space:nowrap}
+ .topbar .theme-toggle{order:2;width:30px;min-width:30px;min-height:32px;height:32px;font-size:0;padding:0}
+ .topbar .theme-toggle:before{content:'◐';font:20px/1 Arial,sans-serif}
+ .topbar .avatar{order:3;min-width:28px;width:28px;height:28px;font-size:11px;border-width:1px}
+ .feature-toolbar{gap:8px;margin-bottom:14px;align-items:center}
+ #doctor-share-button{font-size:11px;padding:5px 10px;min-height:36px;flex:0 0 auto}
+ .feature-toolbar>div{gap:6px}
+ .feature-toolbar .btn{font-size:10px;padding:5px 8px;min-height:34px}
+ .sidebar{height:calc(60px + env(safe-area-inset-bottom,0px))}
+ .sidebar nav{height:60px}
+ .sidebar .nav-link{min-height:48px;padding:4px 1px;gap:2px;font-size:9px}
+ .sidebar .nav-link .icon{width:18px;height:18px}
 }
