@@ -48,3 +48,20 @@ html[data-theme]{background:var(--bg)}.prescription-notes{margin-top:10px;border
  #chart-panel .chart-controls label{flex:1 1 180px}
  #chart-panel .chart-controls .select{width:100%;min-width:0}
 }
+.mobile-prescription-names{padding:0 14px 12px}
+.mobile-prescription-names>p{font-size:12px;color:var(--muted);margin:0 0 12px}
+.mobile-prescription-names section{border-inline-start:3px solid var(--specialty-color);padding-inline-start:10px;margin:0 0 12px;min-width:0}
+.mobile-prescription-names h4{font-size:12px;margin:0 0 6px;color:var(--muted);font-weight:500}
+.mobile-prescription-names section>div{display:flex;flex-wrap:wrap;gap:6px}
+.mobile-prescription-names button{min-height:44px;max-width:100%;padding:6px 10px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font-size:12px;overflow-wrap:anywhere;text-align:start}
+@media(max-width:599px){
+ #chart-panel .chart,#chart-panel .chart.chart-with-rx{width:100%;max-width:100%;height:auto;overflow:visible;padding:4px 10px 0;touch-action:pan-y pinch-zoom}
+ #chart-panel .chart svg,#chart-panel .chart.chart-with-rx svg{width:100%;min-width:0;max-width:100%;height:auto!important;display:block}
+ #chart-panel .chart-range-key{padding:6px 12px 0;gap:5px;flex-wrap:wrap}
+ #chart-panel .range-chip{padding:3px 6px;border-radius:6px;gap:4px;min-width:0;font-size:11px}
+ #chart-panel .range-chip i{width:5px;height:16px}
+ #chart-panel .range-chip bdi{font-size:11px;line-height:1.5}
+ #chart-panel .range-label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+ #chart-panel .chart-range-note{font-size:10px;line-height:1.5;margin:5px 12px 6px}
+ #chart-panel .timeline-heading{font-size:12px}
+}

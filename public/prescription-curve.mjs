@@ -1,5 +1,6 @@
 const e=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export const CURVE_HEIGHT=440;
+export function mobilePrescriptionNames(model){return `<div class="mobile-prescription-names"><p>الأدوية حسب تاريخ الروشتة · اضغط الاسم للتفاصيل</p>${prescriptionCurveGroups(model).map(g=>`<section style="--specialty-color:${specialtyColor(g.specialty)}"><h4><bdi>${e(g.date)}</bdi> · ${e(g.specialty)}</h4><div>${g.rows.map(p=>`<button type="button" data-timeline-rx="${e(p.id)}" dir="auto">${e(p.name)}</button>`).join('')}</div></section>`).join('')}</div>`;}
 export function specialtyGroup(name=''){
  if(/عظام|عمود فقري/.test(name))return 'العظام والعمود الفقري';
  if(/مخ|أعصاب/.test(name))return 'المخ والأعصاب';
@@ -14,10 +15,10 @@ export function prescriptionCurveGroups(model){
  const groups=new Map();for(const p of model.prescriptions){const specialty=specialtyGroup(p.doctor.specialty),key=JSON.stringify([specialty,p.visit.date]);if(!groups.has(key))groups.set(key,{key,specialty,date:p.visit.date,rows:[]});groups.get(key).rows.push(p);}
  return [...groups.values()].sort((a,b)=>a.date.localeCompare(b.date)||a.specialty.localeCompare(b.specialty));
 }
-export function prescriptionCurve(model,{top=0,L=90,W=1000,R=25,x}){
+export function prescriptionCurve(model,{top=0,L=90,W=1000,R=25,x,compact=false}){
  const groups=prescriptionCurveGroups(model);if(!groups.length)return '';
  const specialties=[...new Set(groups.map(g=>g.specialty))],max=Math.max(1,...groups.map(g=>g.rows.length)),plotTop=top+72,base=plotTop+130,y=n=>base-n/max*125;
- let out=`<text x="${L}" y="${top+14}" class="timeline-heading">منحنيات الروشتات حسب تخصص الطبيب</text><text x="${L}" y="${top+35}">الارتفاع = عدد بنود الأدوية المختارة في التاريخ لكل تخصص، وليس الجرعة أو التأثير.</text>`;
+ let out=`<text x="${L}" y="${top+14}" class="timeline-heading">${compact?'الروشتات · عدد بنود الدواء':'منحنيات الروشتات حسب تخصص الطبيب'}</text>${compact?'':`<text x="${L}" y="${top+35}">الارتفاع = عدد بنود الأدوية المختارة في التاريخ لكل تخصص، وليس الجرعة أو التأثير.</text>`}`;
  for(let i=0;i<=max;i++){const yy=y(i);out+=`<line x1="${L}" x2="${W-R}" y1="${yy}" y2="${yy}" stroke="#e0e7e6" stroke-dasharray="3 5"/><text x="${L-12}" y="${yy+4}" text-anchor="end">${i}</text>`;}
  for(const name of specialties){const points=groups.filter(g=>g.specialty===name),color=specialtyColor(name);out+=`<polyline class="prescription-curve-line" points="${points.map(g=>`${x(g.date)},${y(g.rows.length)}`).join(' ')}" stroke="${color}" stroke-width="2.8" fill="none"/>`;}
  const labels=groups.flatMap(g=>g.rows.map(p=>({p,g,anchor:x(g.date)}))).sort((a,b)=>a.anchor-b.anchor||a.p.id.localeCompare(b.p.id));
@@ -26,6 +27,7 @@ export function prescriptionCurve(model,{top=0,L=90,W=1000,R=25,x}){
  labels.forEach(row=>{row.labelX=Math.max(row.anchor,last+gap);last=row.labelX;});
  for(let i=labels.length-1;i>=0;i--)labels[i].labelX=Math.min(labels[i].labelX,i===labels.length-1?right:labels[i+1].labelX-gap);
  for(const g of groups){const px=x(g.date),py=y(g.rows.length),color=specialtyColor(g.specialty);out+=`<g tabindex="0" role="button" class="timeline-point" data-timeline-bundle="${e(g.key)}" aria-label="${e(g.specialty)}، ${e(g.date)}، ${g.rows.length} بنود دواء"><circle cx="${px}" cy="${py}" r="17" fill="transparent"/><circle cx="${px}" cy="${py}" r="5.5" stroke="${color}" stroke-width="2.5" fill="white"/><title>${e(g.specialty)} · ${e(g.date)} · ${e(g.rows.map(p=>p.name).join('، '))}</title></g>`;}
+ if(compact)return out;
  for(const {p,g,labelX}of labels){const px=x(g.date),py=y(g.rows.length),color=specialtyColor(g.specialty),labelY=base+33,name=p.name.length>maxChars?p.name.slice(0,maxChars-1)+'…':p.name;out+=`<line x1="${px}" y1="${py+8}" x2="${labelX}" y2="${labelY-6}" stroke="${color}" stroke-opacity=".3"/><g tabindex="0" role="button" class="timeline-point medication-name-label" data-timeline-rx="${e(p.id)}" aria-label="${e(p.name)}، ${e(p.doctor.name)}، ${e(g.date)}" transform="translate(${labelX},${labelY}) rotate(${angle})"><rect x="-5" y="-${fontSize+3}" width="${Math.min(labelWidth,name.length*fontSize*.6+12)}" height="${fontSize+15}" fill="transparent"/><text fill="${color}" font-size="${fontSize}" font-weight="600">${e(name)}</text><title>${e(p.name)} · ${e(p.doctor.name)} · ${e(g.date)}</title></g>`;}
  return out;
 }
