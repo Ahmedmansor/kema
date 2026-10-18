@@ -12,6 +12,11 @@ test('guest mounts the same application and charts, blocks mutations and clears 
  await import('../share-dist/app.mjs?integration='+Date.now());await new Promise(resolve=>setImmediate(resolve));
  assert.match(q('#main').innerHTML,/Shared patient/);assert.match(q('#main').innerHTML,/chart-panel/);assert.match(q('#main').innerHTML,/data-chart-rx-show/);assert.doesNotMatch(q('#main').innerHTML,/joint-timeline/);assert.match(q('#navigation').innerHTML,/a{64}\/clinical/);
  const overview=q('#main').innerHTML;assert.ok(overview.indexOf('chart-range-key')<overview.indexOf('class="chart chart-with-rx"'));assert.match(overview,/<section class="timeline-undated"/);assert.doesNotMatch(overview,/<details class="timeline-undated"/);assert.match(overview,/Undated medicine/);
+ const chartStart=overview.indexOf('id="chart-panel"'),settingsStart=overview.indexOf('id="chart-settings"');
+ assert.ok(settingsStart>chartStart);assert.match(overview,/<aside class="aside-column chart-settings-column">/);
+ const chartContent=overview.slice(chartStart,settingsStart);assert.doesNotMatch(chartContent,/data-chart-rx-options|data-chart-rx-focus|data-chart-rx-specialty/);
+ assert.match(overview.slice(settingsStart),/data-chart-rx-specialty/);assert.match(overview.slice(settingsStart),/data-chart-rx-focus/);
+ assert.doesNotMatch(overview,/العلاج في الصورة/);
  const dispatch=async(type,target)=>{let stopped=false;const event={target,preventDefault(){},stopImmediatePropagation(){stopped=true;}};for(const {fn}of [...events[type]].sort((a,b)=>Number(Boolean(b.capture))-Number(Boolean(a.capture)))){await fn(event);if(stopped)break;}return stopped;};
  function target(dataset,attribute){const n={dataset,hasAttribute:name=>name===attribute,closest:s=>s.includes(attribute)?n:null};return n;}
  assert.equal(await dispatch('click',target({action:'add-result'},'data-action')),true);assert.equal(q('#modal').open,false);

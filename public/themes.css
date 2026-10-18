@@ -6,3 +6,45 @@ html[data-theme=dark]{color-scheme:dark;--bg:#101b23;--surface:#18262f;--ink:#e4
 @media print{html[data-theme=dark]{--bg:#fff;--surface:#fff;--ink:#1c3440;--muted:#60737c;--line:#ddd;--zone-normal:#e5f4eb;--zone-raised:#fff0cf;--zone-high:#fde8e7;--dot-normal:#117a5a;--dot-raised:#a86408;--dot-high:#b63842}.theme-toggle{display:none!important}.range-fill{print-color-adjust:exact}}
 .rx-specialty-options{display:flex;flex-wrap:wrap;gap:8px;width:100%}.rx-specialty-choice{display:flex;align-items:center;gap:8px;min-height:44px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);font-size:12px;cursor:pointer}.rx-specialty-choice input{width:18px;height:18px;accent-color:var(--green);flex-shrink:0}.rx-specialty-choice.is-muted{opacity:.6;background:var(--bg)}.rx-focus-control{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin:10px 0}.rx-focus-control .field{flex:1;min-width:220px}.rx-focus-control .select{width:100%;max-width:100%}.rx-focus-control p{flex:1;min-width:220px;font-size:12px;color:var(--muted);margin:0}.rx-specialty-choice:focus-within{outline:2px solid var(--green);outline-offset:2px}
 html[data-theme]{background:var(--bg)}.prescription-notes{margin-top:10px;border-inline-start:3px solid var(--green);padding:10px 12px;background:var(--green-soft);border-radius:8px;font-size:12px;min-width:180px}.prescription-notes p{margin:5px 0 0;white-space:pre-wrap}.timeline-undated h3{margin:0 0 10px;font-size:15px}.timeline-undated p{margin:5px 0}.overview-followup{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin:14px 0 24px}.overview-followup span{font-size:12px;color:var(--muted)}.content-grid.trends-workspace{grid-template-columns:minmax(0,1fr)}.trends-workspace>.aside-column{display:none}
+/* Keep the selected test next to its plot; secondary controls live beside it. */
+.content-grid:has(>.chart-settings-column){grid-template-columns:minmax(0,1fr) 300px;gap:20px}
+.trends-workspace>.chart-settings-column{display:block}
+.chart-settings-column{min-width:0}
+.chart-settings-shell{overflow:hidden}
+.chart-settings-shell>summary{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:64px;padding:16px;cursor:pointer;list-style:none;border-bottom:1px solid var(--line);font-weight:700}
+.chart-settings-shell>summary::-webkit-details-marker{display:none}
+.chart-settings-shell>summary>span{display:flex;align-items:center;gap:8px}
+.chart-settings-shell>summary small{font-size:11px;color:var(--muted);font-weight:400}
+.chart-settings-shell:not([open])>summary{border-bottom:0}
+#chart-settings .chart-rx-controls{margin:0;padding:16px;border:0}
+#chart-settings .timeline-switch{display:flex;align-items:center;gap:10px;min-height:44px;font-size:14px;font-weight:600}
+#chart-settings input[type=checkbox]{width:18px;height:18px;flex-shrink:0;accent-color:var(--green)}
+.chart-specialty-settings{margin:16px 0;padding-top:14px;border-top:1px solid var(--line)}
+.chart-specialty-settings h3{font-size:12px;color:var(--muted);margin:0 0 8px}
+#chart-settings .rx-specialty-options{display:grid;gap:4px}
+#chart-settings .rx-specialty-choice{min-height:44px;padding:8px;border-radius:9px;background:var(--bg);font-size:12px}
+#chart-settings .rx-specialty-choice span{white-space:normal}
+#chart-settings .rx-specialty-options>button{margin-top:4px;justify-self:start}
+#chart-settings .rx-focus-control{display:block;margin:16px 0}
+#chart-settings .rx-focus-control .field{min-width:0}
+#chart-settings .rx-focus-control p{min-width:0;font-size:12px;margin:8px 0;color:var(--muted)}
+#chart-settings .select{width:100%;min-width:0;max-width:100%}
+#chart-settings .timeline-choices{padding:10px;margin:0}
+#chart-settings .timeline-choices summary{font-size:13px;min-height:44px}
+#chart-settings .timeline-choices>div{max-height:260px;overflow:auto}
+#chart-settings .timeline-choices>div label{min-height:44px;display:flex;align-items:center;gap:8px}
+.chart-reading-help{margin-top:14px;font-size:12px;color:var(--muted)}
+.chart-reading-help summary{min-height:44px;display:flex;align-items:center;cursor:pointer}
+#chart-panel .chart-controls{justify-content:flex-start;gap:12px;flex-wrap:wrap;padding-bottom:12px;margin-bottom:0}
+#chart-panel .chart-controls label{display:flex;align-items:center;gap:8px}
+#chart-panel .chart-title{padding-top:12px}
+@media(max-width:999px){
+ .content-grid:has(>.chart-settings-column){display:flex;flex-direction:column;gap:16px}
+ .content-grid:has(>.chart-settings-column)>div{width:100%}
+ .chart-settings-column{width:100%;margin-top:0;order:-1}
+ .chart-settings-shell>summary:after{content:'⌄';font-size:20px}
+ .chart-settings-shell[open]>summary:after{content:'⌃'}
+ #chart-settings .rx-specialty-options{display:flex;flex-wrap:wrap;gap:8px}
+ #chart-panel .chart-controls label{flex:1 1 180px}
+ #chart-panel .chart-controls .select{width:100%;min-width:0}
+}
