@@ -1,4 +1,5 @@
 import { mkdir, cp, readdir, readFile } from 'node:fs/promises';
+import {versionAssets} from './version-assets.mjs';
 await mkdir('dist', { recursive: true });
 const allowlist=['index.html', 'styles.css', 'enhancements.css', 'app.mjs', 'core.mjs', 'enhancements.mjs', 'documents.mjs', 'pdf-viewer.mjs', 'cloud.mjs', 'profiles.mjs', 'report.mjs', 'report.css', 'timeline.mjs', 'clinical.mjs', 'clinical-core.mjs', 'clinical.css', 'vendor', 'mark.svg'];
 const existing=await readdir('dist');
@@ -15,4 +16,5 @@ catch(error){if(error.code!=='ENOENT')throw error;}
 for (const name of files.filter(name=>name!=='vendor')) {
   if (privateName&&(await readFile(`dist/${name}`, 'utf8')).includes(privateName)) throw new Error('Personal data in build');
 }
-console.log('Built dist/ — application only; no personal records or PDFs.');
+const version=await versionAssets('dist',allowlist);
+console.log(`Built dist/ release ${version} — application only; no personal records or PDFs.`);
