@@ -37,3 +37,14 @@ test('the original test plot and optional prescription curves share date coordin
  assert.doesNotMatch(svg(rows),/data-timeline-rx/); // Exported report charts have no overlay model.
  toggle.enabled=false;const plain=svg(rows,rx);assert.doesNotMatch(plain,/data-timeline-rx/);assert.match(plain,/viewBox="0 0 328 245"/);
 });
+
+test('specialty visibility is temporary, filters shared medicine names by prescriber and recomputes visible dates',t=>{
+ const previous=globalThis.document,listeners={};globalThis.document={addEventListener:(name,fn)=>listeners[name]=fn,querySelector:()=>null,querySelectorAll:()=>[]};t.after(()=>globalThis.document=previous);
+ const data=structuredClone(db);data.clinical.doctors.push({id:'gi',name:'Gastro doctor',specialty:'جهاز هضمي وباطنة'});data.clinical.visits.push({id:'gi-visit',doctorId:'gi',date:'2024-01-01'});data.clinical.prescriptions.push({id:'gi-rx',visitId:'gi-visit',name:'Medicine',instructions:'GI instructions'});
+ const original=JSON.stringify(data),ui=createChartPrescriptions({getDB:()=>data,select(){},update(){}}),settings={testId:'triglycerides',unit:'mg/dL',range:'all'};
+ const change=(attr,value,checked)=>listeners.change({target:{value,checked,matches:s=>s===`[${attr}]`,hasAttribute:a=>a===attr}});
+ assert.equal(ui.model(rows,settings).start,'2024-01-01');assert.match(ui.specialties(),/data-chart-rx-specialty/);
+ change('data-chart-rx-specialty','الجهاز الهضمي والباطنة',false);let model=ui.model(rows,settings);assert.equal(model.start,'2025-01-01');assert.equal(model.prescriptions.length,2);assert.ok(model.prescriptions.every(p=>p.doctor.id==='d'));assert.match(ui.specialties(),/is-muted/);
+ change('data-chart-rx-specialty','العظام والعمود الفقري',false);model=ui.model(rows,settings);assert.equal(model.prescriptions.length,0);assert.equal(model.results.length,1);assert.equal(model.undated.length,0);
+ change('data-chart-rx-focus','Medicine',true);model=ui.model(rows,settings);assert.equal(model.prescriptions.length,3);assert.equal(model.undated.length,1);assert.equal(JSON.stringify(data),original);
+});
