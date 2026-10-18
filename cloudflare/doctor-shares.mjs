@@ -1,4 +1,5 @@
 import {selectReportData} from '../public/report.mjs';
+import {guestClinical} from './guest-data.mjs';
 export const hashShareToken=async token=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(token)))].map(b=>b.toString(16).padStart(2,'0')).join('');
 export function createDoctorShares({json,checkOrigin,boundedBody}){
   const fail=(status,message)=>{throw Object.assign(new Error(message),{status});};
@@ -19,7 +20,8 @@ export function createDoctorShares({json,checkOrigin,boundedBody}){
     if(![24,72,168].includes(input.hours)||!['all','latest'].includes(input.mode)||input.consent!==true)fail(400,'اختَر مدة ونوع المشاركة وأكد موافقتك.');
     const count=await env.DB.prepare('SELECT COUNT(*) AS n FROM kema_doctor_shares WHERE profile_id=? AND expires_at>? AND revoked_at IS NULL').bind(session.profileId,now).first();if(count.n>=20)fail(413,'ألغِ رابطًا قديمًا قبل إضافة رابط جديد.');
     const row=await env.DB.prepare('SELECT data FROM kema_profile_state WHERE profile_id=?').bind(session.profileId).first();
-    let snapshot;try{snapshot=selectReportData(JSON.parse(row.data),{from:input.from||'',to:input.to||'',latestOnly:input.mode==='latest',medications:input.medications===true,alerts:input.alerts===true,includeName:input.includeName===true});}catch(error){fail(400,error.message);}
+    let snapshot;try{const data=JSON.parse(row.data);snapshot=selectReportData(data,{from:input.from||'',to:input.to||'',latestOnly:input.mode==='latest',medications:input.medications===true,alerts:input.alerts===true,includeName:input.includeName===true});snapshot.clinical=guestClinical(data,{from:input.from||'',to:input.to||'',latestOnly:input.mode==='latest',latestDate:snapshot.results.map(r=>r.date).sort().at(-1),medications:input.medications===true,clinical:input.clinical===true,undated:input.undated===true});snapshot.guestVersion=1;}catch(error){fail(400,error.message);}
+    if(snapshot.alerts)snapshot.alerts=snapshot.alerts.map(({text,date,doctor})=>({text,date,doctor}));
     const token=[...crypto.getRandomValues(new Uint8Array(32))].map(b=>b.toString(16).padStart(2,'0')).join(''),hash=await hashShareToken(token),id=crypto.randomUUID(),expires=now+input.hours*3600,label=typeof input.label==='string'?input.label.trim().slice(0,80):'رابط للطبيب';
     await env.DB.prepare('INSERT INTO kema_doctor_shares(id,profile_id,token_hash,label,snapshot,created_at,expires_at) VALUES(?,?,?,?,?,?,?)').bind(id,session.profileId,hash,label||'رابط للطبيب',JSON.stringify(snapshot),now,expires).run();
     return json({id,url:env.SHARE_ORIGIN.replace(/\/$/,'')+'/#'+token,expiresAt:new Date(expires*1000).toISOString(),results:snapshot.results.length},201);

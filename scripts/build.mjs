@@ -1,7 +1,7 @@
 import { mkdir, cp, readdir, readFile } from 'node:fs/promises';
 import {versionAssets} from './version-assets.mjs';
 await mkdir('dist', { recursive: true });
-const allowlist=['index.html', 'styles.css', 'enhancements.css', 'app.mjs', 'core.mjs', 'enhancements.mjs', 'documents.mjs', 'pdf-viewer.mjs', 'cloud.mjs', 'profiles.mjs', 'report.mjs', 'report.css', 'medication-register.mjs', 'prescription-curve.mjs', 'timeline.mjs', 'clinical.mjs', 'clinical-core.mjs', 'clinical.css', 'vendor', 'mark.svg'];
+const allowlist=['index.html', 'styles.css', 'enhancements.css', 'app.mjs', 'core.mjs', 'enhancements.mjs', 'documents.mjs', 'pdf-viewer.mjs', 'cloud.mjs', 'profiles.mjs', 'report.mjs', 'report.css', 'medication-register.mjs', 'prescription-curve.mjs', 'timeline.mjs', 'clinical-presentation.mjs', 'clinical.mjs', 'clinical-core.mjs', 'clinical.css', 'vendor', 'mark.svg'];
 const existing=await readdir('dist');
 if(existing.some(f=>!allowlist.includes(f)))throw new Error('Unexpected files in dist. Move them out before building.');
 // Explicit allowlist: personal seed records and design tooling are never packaged.
