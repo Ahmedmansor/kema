@@ -13,16 +13,17 @@ test('prescriptions follow the selected test unit and its existing relative peri
  assert.equal(s.from,'2026-04-15');assert.equal(s.to,'2026-10-15');assert.deepEqual(s.tests,['["triglycerides","mg/dL"]']);
  assert.equal(chartPrescriptionSelection(rows,{range:'all'}).from,'');
 });
-test('integrated controls default off, preserve filters and drive one shared chart model',t=>{
+test('integrated controls default on, preserve filters and drive one shared chart model',t=>{
  const prev=globalThis.document,listeners={};globalThis.document={addEventListener:(n,f)=>listeners[n]=f,querySelector:()=>null,querySelectorAll:()=>[]};t.after(()=>globalThis.document=prev);
  let selection,updates=0;const ui=createChartPrescriptions({getDB:()=>db,select:s=>selection=s,update:()=>updates++});
  const settings={testId:'triglycerides',unit:'mg/dL',range:'6'};
- assert.equal(ui.model(rows,settings).prescriptions.length,0);assert.equal(ui.enabled,false);
+ assert.equal(ui.model(rows,settings).prescriptions.length,1);assert.equal(ui.enabled,true);assert.match(ui.controls(),/data-chart-rx-show checked/);
  const change=(attribute,value,checked)=>listeners.change({target:{value,checked,matches:s=>s===`[${attribute}]`,hasAttribute:a=>a===attribute}});
+ change('data-chart-rx-show','on',false);assert.equal(ui.model(rows,settings).prescriptions.length,0);
  change('data-chart-rx-show','on',true);let model=ui.model(rows,settings);assert.equal(model.prescriptions.length,1);assert.equal(model.undated.length,1);assert.equal(model.results[0].testId,'triglycerides');assert.equal(selection.from,'2026-04-15');
  assert.match(ui.controls(),/data-chart-rx-med/);assert.doesNotMatch(ui.controls(),/chart-test|timeline-filters/);
  model=ui.model(rows,{...settings,range:'all'});assert.equal(model.prescriptions.length,2);
- change('data-chart-rx-med','Medicine',false);assert.equal(ui.model(rows,settings).prescriptions.length,0);assert.equal(updates,2);
+ change('data-chart-rx-med','Medicine',false);assert.equal(ui.model(rows,settings).prescriptions.length,0);assert.equal(updates,3);
 });
 test('the original test plot and optional prescription curves share date coordinates without a duplicate section',async()=>{
  const source=await readFile(new URL('../public/app.mjs',import.meta.url),'utf8');assert.ok(!source.includes('${timeline.render()}'));
