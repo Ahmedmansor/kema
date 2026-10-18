@@ -27,3 +27,4 @@ html[data-theme=dark] .alert-deck .alert-note-card{background:radial-gradient(el
 @media(prefers-reduced-motion:reduce){.alert-pagination span{transition:none}}
 @media print{.alert-deck-grid{display:block}.alert-deck .alert-note-card,.alert-deck .home-alert-slide-window{height:auto;min-height:0;overflow:visible}.alert-deck .alert-card-body{overflow:visible}.alert-deck .alert-rotation-controls{display:none}}
 .alert-deck .alert-card-footer .btn,.alert-deck .alert-source-link{min-height:44px}
+.home-alert-scroll,.home-alert-slide-window,.alert-card-body{overscroll-behavior:auto;touch-action:pan-y pinch-zoom}
